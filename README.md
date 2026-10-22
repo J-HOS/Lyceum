@@ -12,20 +12,20 @@ Tell it what you want to master. It designs a full graduate course (modules, les
 - **Spaced repetition:** flashcards generated from each lesson, plus your missed quiz questions, scheduled with an SM-2 algorithm.
 - **Obsidian export:** each lesson becomes a Markdown note with objectives, study notes, flashcards (in Spaced Repetition plugin format), quiz history and the full transcript. Each course also gets an index note.
 
-## Setup
+## Using it
 
-1. Open the app: **https://j-hos.github.io/Lyceum/**
-2. Get an API key at [console.anthropic.com](https://console.anthropic.com/settings/keys) and add some credit.
-3. In **Settings**, paste the key, write a few lines about yourself as a learner, and connect your Obsidian vault folder. Connecting the vault needs Chrome or Edge on desktop; other browsers download `.md` files instead.
+Lyceum is built to run as a **Claude artifact**. Inside Claude it uses your own Claude plan: lessons count toward your plan's usage limits, with no API key and no per-token billing. Your courses are saved privately to your Claude account, so they follow you across devices.
 
-## Privacy
+1. Open your Lyceum artifact in Claude.
+2. The first time your tutor speaks, choose **Allow** so the page can use Claude on your account.
+3. In **Settings**, write a few lines about yourself as a learner.
 
-There is no server. Your courses, lessons and flashcards are stored in your browser (IndexedDB), and your API key is sent only to Anthropic. Nothing personal is ever written to this repository. Use **Settings → Backup** to move your data between devices.
+The GitHub Pages copy (https://j-hos.github.io/Lyceum/) runs the same code outside Claude. There it needs an Anthropic API key and saves data in that browser only.
 
-## Costs
+## Obsidian
 
-You pay Anthropic per use. Opus 5.5 gives the deepest teaching and Sonnet 5.5 is cheaper. You can choose a model separately for the tutor and for the study tools (notes, quizzes, flashcards, grading).
+Each lesson exports as a Markdown note with objectives, study notes, flashcards (in the Spaced Repetition plugin's `question::answer` format), quiz history and the full dialogue. A whole course exports as a `.zip`; unzip it into your vault's `00 Notes/Courses` folder.
 
 ## Tech
 
-Plain HTML, CSS and ES modules, with no build step. The app calls the Anthropic Messages API directly from the browser. It uses marked, DOMPurify and KaTeX from jsDelivr, and is hosted on GitHub Pages.
+Plain HTML, CSS and ES modules. `npm run build` writes `index.html` (GitHub Pages) and `dist/lyceum.html` (the single-file artifact). Inside Claude it uses the artifact `sample`, `db`, `user` and `downloads` capabilities; outside it falls back to the Anthropic Messages API and IndexedDB. It uses marked, DOMPurify, KaTeX (MathML output) and JSZip from cdnjs.

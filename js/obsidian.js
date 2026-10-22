@@ -1,53 +1,10 @@
-// Export lessons and courses as Markdown into an Obsidian vault.
-// Uses the File System Access API (Chrome/Edge desktop) to write straight into the vault folder;
-// falls back to downloading .md files elsewhere.
-import * as db from './db.js';
-import { getSettings } from './api.js';
+// Export lessons and courses as Obsidian-ready Markdown.
+// A lesson downloads as one .md note; a course downloads as a .zip you unzip into your vault
+// (it contains a folder named after the course with an index note and one note per lesson).
+import * as store from './store.js';
 import { transcript } from './prompts.js';
 
-export const fsSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
-
-export async function connectVault() {
-  const handle = await window.showDirectoryPicker({ id: 'lyceum-vault', mode: 'readwrite' });
-  await db.kvSet('vault', handle);
-  return handle.name;
-}
-
-export async function disconnectVault() {
-  await db.kvDel('vault');
-}
-
-export async function vaultName() {
-  const hd = await db.kvGet('vault');
-  return hd ? hd.name : null;
-}
-
-async function vaultHandle() {
-  if (!fsSupported) return null;
-  const hd = await db.kvGet('vault');
-  if (!hd) return null;
-  const opts = { mode: 'readwrite' };
-  try {
-    if ((await hd.queryPermission(opts)) === 'granted') return hd;
-    if ((await hd.requestPermission(opts)) === 'granted') return hd;
-  } catch {}
-  return null;
-}
-
-async function getDir(root, path) {
-  let d = root;
-  for (const part of path.split('/').map((p) => p.trim()).filter(Boolean)) {
-    d = await d.getDirectoryHandle(part, { create: true });
-  }
-  return d;
-}
-
-async function writeFile(dir, name, text) {
-  const fh = await dir.getFileHandle(name, { create: true });
-  const w = await fh.createWritable();
-  await w.write(text);
-  await w.close();
-}
+const VAULT_FOLDER = '00 Notes/Courses';
 
 export const safe = (s) =>
   String(s).replace(/[\\/:*?"<>|#^[\]]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90) || 'Untitled';
@@ -56,22 +13,22 @@ const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(
 const pad = (n) => String(n).padStart(2, '0');
 const today = () => new Date().toISOString().slice(0, 10);
 const yq = (s) => JSON.stringify(String(s));
+// nest the notes' own headings under the "## Notes" section
+const demote = (s) => String(s).replace(/^(#{1,5}) /gm, '#$1 ');
+const oneLine = (s) => String(s).replace(/\n+/g, '<br>').replace(/::/g, ': :');
 
 export function lessonFile(course, mi, li) {
   return `${pad(mi + 1)}.${pad(li + 1)} ${safe(course.modules[mi].lessons[li].title)}`;
 }
 
-// nest the notes' own headings under the "## Notes" section
-const demote = (s) => String(s).replace(/^(#{1,5}) /gm, '#$1 ');
-
-function oneLine(s) {
-  return String(s).replace(/\n+/g, '<br>').replace(/::/g, ': :');
-}
-
-export function lessonMarkdown(course, mi, li, cards, folder) {
+// `body` = {messages, notes} for the lesson (may be empty).
+export function lessonMarkdown(course, mi, li, body, cards) {
   const m = course.modules[mi];
   const l = m.lessons[li];
+  const dir = `${VAULT_FOLDER}/${safe(course.title)}`;
   const tag = slug(course.title);
+  const messages = body?.messages || [];
+  const notes = body?.notes || '';
   const parts = [];
   parts.push(`---
 course: ${yq(course.title)}
@@ -82,19 +39,18 @@ updated: ${today()}
 tags: [lyceum, course/${tag}]
 ---`);
   parts.push(`# ${l.title}`);
-  parts.push(`Part of [[${folder}/${safe(course.title)}/${safe(course.title)}|${course.title}]] · Module ${mi + 1}: ${m.title}`);
+  parts.push(`Part of [[${dir}/${safe(course.title)}|${course.title}]] · Module ${mi + 1}: ${m.title}`);
   parts.push(`## Objectives\n${l.objectives.map((o) => `- [${l.status === 'done' ? 'x' : ' '}] ${o}`).join('\n')}`);
   if (l.recap) parts.push(`> [!summary] Recap\n> ${l.recap}`);
-  parts.push(`## Notes\n${l.notes ? demote(l.notes) : '_No notes generated yet. Use "Generate notes" in Lyceum._'}`);
+  parts.push(`## Notes\n${notes ? demote(notes) : '_No notes generated yet. Use "Generate notes" in Lyceum._'}`);
   if (cards.length) {
     parts.push(`## Flashcards\n#flashcards/${tag}\n\n${cards.map((c) => `${oneLine(c.front)}::${oneLine(c.back)}`).join('\n')}`);
   }
   if (l.quizHistory?.length) {
     parts.push(`## Quiz history\n${l.quizHistory.map((q) => `- ${q.date}: ${Math.round(q.score * 100)}%`).join('\n')}`);
   }
-  const t = transcript(l);
-  if (t) {
-    const quoted = l.messages
+  if (transcript({ messages })) {
+    const quoted = messages
       .filter((x) => !x.hidden)
       .map((x) => `**${x.role === 'user' ? 'Me' : 'Tutor'}:** ${x.content}`)
       .join('\n\n')
@@ -106,8 +62,8 @@ tags: [lyceum, course/${tag}]
   return parts.join('\n\n') + '\n';
 }
 
-export function courseMarkdown(course, folder) {
-  const dir = `${folder}/${safe(course.title)}`;
+export function courseMarkdown(course) {
+  const dir = `${VAULT_FOLDER}/${safe(course.title)}`;
   const done = course.modules.reduce((n, m) => n + m.lessons.filter((l) => l.status === 'done').length, 0);
   const total = course.modules.reduce((n, m) => n + m.lessons.length, 0);
   const parts = [];
@@ -138,54 +94,61 @@ tags: [lyceum, course, course/${slug(course.title)}]
   return parts.join('\n\n') + '\n';
 }
 
-function download(name, text) {
+/* ---------- saving files ---------- */
+
+let downloadsPromise = null;
+function getDownloads() {
+  if (!downloadsPromise) downloadsPromise = window.claude?.use ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+  return downloadsPromise;
+}
+
+async function saveFile(filename, data) {
+  const dl = await getDownloads();
+  if (dl) {
+    try {
+      await dl.save({ filename, data });
+      return `Saved ${filename}`;
+    } catch (e) {
+      if (e?.code === 'declined') return 'Download cancelled';
+      throw new Error(e?.message || 'The download did not go through.');
+    }
+  }
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: 'text/markdown' }));
-  a.download = name;
+  a.href = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type: 'text/plain' }));
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
-  setTimeout(() => {
-    URL.revokeObjectURL(a.href);
-    a.remove();
-  }, 1000);
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  return `Downloaded ${filename}`;
 }
 
-// files: [{ name, text }] (name without .md). Returns a human description of where they went.
-async function writeFiles(course, files) {
-  const s = await getSettings();
-  const root = await vaultHandle();
-  const sub = `${s.vaultPath}/${safe(course.title)}`.replace(/^\/+/, '');
-  if (root) {
-    const dir = await getDir(root, sub);
-    for (const f of files) await writeFile(dir, `${f.name}.md`, f.text);
-    return `Saved to ${root.name}/${sub}`;
-  }
-  for (const [i, f] of files.entries()) setTimeout(() => download(`${f.name}.md`, f.text), i * 250);
-  return files.length > 1 ? `Downloaded ${files.length} Markdown files` : `Downloaded ${files[0].name}.md`;
-}
+export { saveFile };
 
 async function cardsFor(lessonId) {
-  return (await db.getAll('cards')).filter((c) => c.lessonId === lessonId);
+  return (await store.all('cards')).filter((c) => c.lessonId === lessonId);
 }
 
-export async function exportLesson(course, mi, li) {
-  const s = await getSettings();
+export async function exportLesson(course, mi, li, body) {
   const l = course.modules[mi].lessons[li];
-  const files = [{ name: lessonFile(course, mi, li), text: lessonMarkdown(course, mi, li, await cardsFor(l.id), s.vaultPath) }];
-  // keep the course index note in sync when writing into the vault
-  if (await vaultHandle()) files.push({ name: safe(course.title), text: courseMarkdown(course, s.vaultPath) });
-  return writeFiles(course, files);
+  const text = lessonMarkdown(course, mi, li, body, await cardsFor(l.id));
+  return saveFile(`${lessonFile(course, mi, li)}.md`, text);
 }
 
 export async function exportCourse(course) {
-  const s = await getSettings();
-  const all = await db.getAll('cards');
-  const files = [{ name: safe(course.title), text: courseMarkdown(course, s.vaultPath) }];
-  course.modules.forEach((m, i) =>
-    m.lessons.forEach((l, j) => {
-      if (l.status === 'not-started' && !l.notes) return;
-      files.push({ name: lessonFile(course, i, j), text: lessonMarkdown(course, i, j, all.filter((c) => c.lessonId === l.id), s.vaultPath) });
-    })
-  );
-  return writeFiles(course, files);
+  if (!window.JSZip) throw new Error('The zip tool did not load. Check your connection and reload.');
+  const zip = new window.JSZip();
+  const folder = zip.folder(safe(course.title));
+  const cards = await store.all('cards');
+  folder.file(`${safe(course.title)}.md`, courseMarkdown(course));
+  for (const [i, m] of course.modules.entries()) {
+    for (const [j, l] of m.lessons.entries()) {
+      if (l.status === 'not-started' && !l.hasNotes) continue;
+      const body = (await store.get('lessons', l.id)) || {};
+      folder.file(`${lessonFile(course, i, j)}.md`, lessonMarkdown(course, i, j, body, cards.filter((c) => c.lessonId === l.id)));
+    }
+  }
+  const blob = await zip.generateAsync({ type: 'blob' });
+  return saveFile(`${safe(course.title)}.zip`, blob);
 }
+
+export const VAULT_HINT = `Unzip into your vault's "${VAULT_FOLDER}" folder.`;

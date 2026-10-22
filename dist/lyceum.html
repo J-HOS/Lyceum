@@ -1,0 +1,1997 @@
+<title>Lyceum</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A private, graduate-level tutor for any subject.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* Lyceum: a reading-room for one student.
+   Layout: sticky top bar, one centred column (1180px) that splits into text + sidebar on wide screens. */
+:root {
+  --paper: #f3f4f0;        /* cool, slightly green-tinged paper */
+  --leaf: #fbfbf8;         /* raised surfaces */
+  --leaf-2: #e7e9e2;       /* inset / hover */
+  --ink: #1b2420;          /* body text, green-black */
+  --ink-2: #4f5b55;
+  --ink-3: #7f8a84;
+  --rule: #d8dcd3;
+  --green: #1d5a46;        /* library green: primary actions, progress */
+  --green-ink: #f3f6f2;
+  --green-soft: #dde9e2;
+  --brass: #9a7224;        /* brass: eyebrows, numbering, highlights */
+  --ok: #2c6a3f; --ok-soft: #e0eee3;
+  --warn: #93600e; --warn-soft: #f4e9cf;
+  --bad: #a23b2f; --bad-soft: #f6e1dd;
+  --on-status: #ffffff;
+  --shadow: 0 1px 2px rgba(20, 35, 28, .05), 0 8px 24px -14px rgba(20, 35, 28, .22);
+  --read: 'Spectral', 'Iowan Old Style', Georgia, serif;
+  --ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111614; --leaf: #18201c; --leaf-2: #222b26; --ink: #e4e9e4; --ink-2: #a8b3ac; --ink-3: #75817a;
+    --rule: #2c3631; --green: #6fbf9a; --green-ink: #0d1612; --green-soft: #1e3329; --brass: #d4ad5c;
+    --ok: #7cc495; --ok-soft: #1b2e22; --warn: #e2b766; --warn-soft: #33291a; --bad: #ec8a80; --bad-soft: #3a211e;
+    --on-status: #0d1612;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -14px rgba(0,0,0,.65);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #111614; --leaf: #18201c; --leaf-2: #222b26; --ink: #e4e9e4; --ink-2: #a8b3ac; --ink-3: #75817a;
+  --rule: #2c3631; --green: #6fbf9a; --green-ink: #0d1612; --green-soft: #1e3329; --brass: #d4ad5c;
+  --ok: #7cc495; --ok-soft: #1b2e22; --warn: #e2b766; --warn-soft: #33291a; --bad: #ec8a80; --bad-soft: #3a211e;
+  --on-status: #0d1612;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -14px rgba(0,0,0,.65);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.55 var(--ui); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--paper); }
+a { color: var(--green); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+h1, h2, h3 { font-family: var(--read); font-weight: 600; line-height: 1.18; margin: 0; letter-spacing: -.005em; text-wrap: balance; }
+h1 { font-size: clamp(28px, 4vw, 40px); font-weight: 500; }
+h2 { font-size: 22px; font-weight: 500; }
+h3 { font-size: 17px; }
+code { font: .88em var(--mono); background: var(--leaf-2); padding: 1px 5px; border-radius: 4px; }
+kbd { font: 11px var(--mono); border: 1px solid currentColor; opacity: .6; padding: 0 4px; border-radius: 4px; margin-left: 8px; }
+:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-2); }
+.small { font-size: 13px; }
+.tiny { font-size: 12px; margin: 6px 2px 0; color: var(--ink-3); }
+.center { text-align: center; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.eyebrow { font: 600 11.5px var(--ui); letter-spacing: .1em; text-transform: uppercase; color: var(--brass); margin: 0 0 6px; }
+.req { color: var(--bad); }
+
+/* layout */
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px), calc((100vw - 1180px) / 2)); padding-right: max(16px, env(safe-area-inset-right, 0px), calc((100vw - 1180px) / 2));
+  background: color-mix(in srgb, var(--paper) 90%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); }
+.brand { display: flex; align-items: center; gap: 9px; font: 600 21px var(--read); color: var(--ink); text-decoration: none; letter-spacing: .01em; }
+.brand svg { width: 24px; height: 24px; fill: var(--green); }
+.nav { display: flex; gap: 2px; }
+.nav a { color: var(--ink-2); text-decoration: none; padding: 7px 12px; border-radius: 8px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.nav a:hover { background: var(--leaf-2); color: var(--ink); }
+.nav a.active { color: var(--ink); background: var(--leaf-2); }
+.badge { background: var(--brass); color: var(--paper); font: 600 11px var(--mono); border-radius: 99px; padding: 0 7px; line-height: 18px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 80px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.crumb { display: inline-block; color: var(--ink-2); text-decoration: none; font-size: 13.5px; margin-bottom: 14px; }
+.crumb:hover { color: var(--green); }
+.panel { background: var(--leaf); border: 1px solid var(--rule); border-radius: var(--r); padding: 18px 20px; }
+.panel h3 { margin-bottom: 10px; }
+.panel.quiet { background: transparent; border-style: dashed; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.panel.quiet p { margin: 0; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.row-between { display: flex; justify-content: space-between; align-items: baseline; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; align-items: center; }
+.banner { background: var(--green-soft); border: 1px solid color-mix(in srgb, var(--green) 30%, transparent); padding: 12px 16px; border-radius: var(--r); margin-bottom: 22px; }
+.banner.soft { background: transparent; border-style: dashed; color: var(--ink-2); }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: 500 14px var(--ui); color: var(--ink);
+  background: var(--leaf); border: 1px solid var(--rule); border-radius: 8px; padding: 9px 15px; cursor: pointer; text-decoration: none;
+  transition: background .15s, border-color .15s, transform .05s; white-space: nowrap; }
+.btn:hover { border-color: var(--ink-3); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .6; cursor: progress; }
+.btn.primary { background: var(--green); border-color: var(--green); color: var(--green-ink); }
+.btn.primary:hover { filter: brightness(1.1); }
+.btn.danger { background: var(--bad); border-color: var(--bad); color: var(--on-status); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
+.btn.ghost:hover { background: var(--leaf-2); }
+.btn.small { padding: 6px 11px; font-size: 13px; }
+.btn.block { width: 100%; justify-content: flex-start; margin-bottom: 8px; }
+.btn.wide { min-width: min(240px, 100%); }
+.link-btn { background: none; border: 0; color: var(--green); cursor: pointer; font: 500 13px var(--ui); padding: 0; }
+.spin { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; display: inline-block; animation: spin .7s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.pill { display: inline-block; font-size: 12.5px; font-weight: 500; padding: 3px 10px; border-radius: 99px; background: var(--leaf-2); color: var(--ink-2); }
+.pill.done { background: var(--ok-soft); color: var(--ok); }
+
+/* forms */
+.form { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
+.form h2 { font-size: 20px; }
+.form p { margin: 0; }
+.form > label { font-weight: 500; font-size: 14px; margin-top: 6px; }
+input:not([type=radio]):not([type=checkbox]), textarea, select {
+  font: 15px/1.5 var(--ui); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; width: 100%; }
+textarea { resize: vertical; }
+input:focus, textarea:focus, select:focus { outline: 2px solid color-mix(in srgb, var(--green) 45%, transparent); outline-offset: 1px; border-color: var(--green); }
+.keyrow { display: flex; gap: 8px; }
+.keyrow input { flex: 1; font-family: var(--mono); font-size: 14px; }
+.seg { border: 0; padding: 0; margin: 8px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.seg legend { font-weight: 500; font-size: 14px; margin-bottom: 8px; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; }
+.seg span { display: flex; flex-direction: column; border: 1px solid var(--rule); border-radius: 8px; padding: 11px 13px; cursor: pointer; background: var(--paper); font-weight: 600; }
+.seg small { font-weight: 400; color: var(--ink-2); font-size: 12.5px; }
+.seg input:checked + span { border-color: var(--green); background: var(--green-soft); }
+.seg input:focus-visible + span { outline: 2px solid var(--green); }
+.check { display: flex; align-items: center; gap: 8px; margin-top: 14px; cursor: pointer; font-weight: 500; }
+.check input { width: 17px; height: 17px; accent-color: var(--green); }
+.settings { display: flex; flex-direction: column; gap: 18px; }
+.settings .actions.sticky { position: sticky; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); margin: 0; }
+
+/* home */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 26px; }
+.stat { border-top: 2px solid var(--ink); padding: 10px 2px 0; display: flex; flex-direction: column; color: var(--ink-2); text-decoration: none; font-size: 13px; }
+.stat .num { font: 500 30px var(--mono); color: var(--ink); line-height: 1.15; font-variant-numeric: tabular-nums; }
+.stat.link { border-top-color: var(--brass); }
+.stat.link:hover .num { color: var(--brass); }
+.course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 16px; }
+.course-card { background: var(--leaf); border: 1px solid var(--rule); border-radius: var(--r); box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.course-card .cover { padding: 20px 20px 14px; text-decoration: none; color: inherit; flex: 1; }
+.course-card .cover:hover h3 { color: var(--green); }
+.course-card h3 { font-size: 21px; font-weight: 500; margin-bottom: 8px; }
+.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin: 0; font-size: 14px; }
+.card-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 20px 16px; font-size: 13px; flex-wrap: wrap; }
+.progress { height: 4px; background: var(--leaf-2); margin: 0 20px; border-radius: 4px; overflow: hidden; }
+.progress div { height: 100%; background: var(--green); border-radius: 4px; }
+.progress.big { height: 6px; margin: 18px 0 8px; max-width: 520px; }
+.empty { text-align: center; padding: 48px 0; max-width: 560px; margin: 0 auto; }
+.empty h2 { margin-bottom: 8px; }
+.empty p { margin: 0 0 20px; }
+.examples { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 22px; }
+.loading-card { display: flex; gap: 12px; align-items: center; color: var(--ink-2); padding: 40px 0; justify-content: center; text-align: center; }
+
+/* course */
+.course-head { margin-bottom: 30px; max-width: 820px; }
+.lede { font: 19px/1.55 var(--read); color: var(--ink-2); margin: 12px 0 0; max-width: 65ch; }
+.course-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 28px; align-items: start; }
+.modules { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.module { background: var(--leaf); border: 1px solid var(--rule); border-radius: var(--r); padding: 20px; }
+.module-head { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.module-head p.muted { margin: 6px 0 0; font-size: 14px; }
+.module-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.lessons { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+.lesson-row { display: grid; grid-template-columns: 14px 40px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 11px 6px; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none; }
+.lessons li:last-child .lesson-row { border-bottom: 0; }
+.lesson-row:hover { background: var(--leaf-2); }
+.lesson-row .ln { color: var(--brass); font-size: 13px; }
+.lesson-row .lt { font-family: var(--read); font-size: 17px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--ink-3); }
+.in-progress .dot { border-color: var(--warn); background: linear-gradient(90deg, var(--warn) 50%, transparent 50%); }
+.done .dot { border-color: var(--ok); background: var(--ok); }
+.course-aside { display: flex; flex-direction: column; gap: 14px; position: sticky; top: calc(76px + env(safe-area-inset-top, 0px)); }
+.course-aside ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--ink-2); }
+.course-aside li { margin-bottom: 6px; }
+.texts li { font-family: var(--read); font-style: italic; font-size: 15px; }
+
+/* lesson */
+.lesson-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 32px; align-items: start; }
+.lesson-head { margin-bottom: 20px; max-width: 820px; }
+.lesson-main { min-width: 0; }
+.chat { display: flex; flex-direction: column; gap: 22px; }
+.msg { min-width: 0; }
+.msg .who { font: 600 11px var(--ui); text-transform: uppercase; letter-spacing: .1em; color: var(--brass); margin-bottom: 6px; }
+.msg.assistant .prose { font: 18.5px/1.68 var(--read); max-width: 68ch; }
+.msg.user { align-self: flex-end; max-width: 85%; background: var(--leaf-2); border-radius: 14px 14px 4px 14px; padding: 12px 16px; }
+.msg.user .who { display: none; }
+.msg.error { background: var(--bad-soft); color: var(--bad); border-radius: var(--r); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.msg.error p { margin: 0; }
+.sys-note { text-align: center; font: 500 11px var(--ui); color: var(--ink-3); letter-spacing: .1em; text-transform: uppercase; }
+.sys-note::before, .sys-note::after { content: '·'; margin: 0 10px; }
+.start-card { background: var(--leaf); border: 1px solid var(--rule); border-radius: var(--r); padding: 24px; }
+.start-card p { margin: 0 0 16px; font: 18px/1.6 var(--read); color: var(--ink-2); max-width: 62ch; }
+.composer { position: sticky; bottom: env(safe-area-inset-bottom, 0px); background: linear-gradient(to bottom, transparent, var(--paper) 18px); padding: 26px 0 14px; margin-top: 10px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.chip { font: 500 12.5px var(--ui); background: var(--leaf); border: 1px solid var(--rule); color: var(--ink-2); padding: 5px 11px; border-radius: 99px; cursor: pointer; text-decoration: none; }
+.chip:hover { border-color: var(--green); color: var(--green); }
+.ask { display: flex; gap: 8px; align-items: flex-end; background: var(--leaf); border: 1px solid var(--rule); border-radius: 12px; padding: 8px; box-shadow: var(--shadow); }
+.ask textarea { border: 0; background: transparent; padding: 8px; min-height: 44px; max-height: 260px; }
+.ask textarea:focus { outline: none; }
+.lesson-aside { position: sticky; top: calc(76px + env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 92px); overflow: auto; padding-bottom: 8px; }
+.objectives { margin: 0; padding-left: 18px; font-size: 14px; color: var(--ink-2); }
+.objectives li { margin-bottom: 6px; }
+.tools .btn:last-child { margin-bottom: 0; }
+.notes { font-size: 14px; }
+.notes.collapsed { max-height: 180px; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent); }
+.notes h2 { font-size: 17px; margin-top: 14px; }
+.notes h3 { font-size: 15px; }
+.pager { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.pager a { text-decoration: none; }
+.thinking { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-3); font: 14px var(--ui); }
+.typing { display: inline-flex; gap: 4px; padding: 6px 0; }
+.typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: blink 1.2s infinite; }
+.typing i:nth-child(2) { animation-delay: .2s; }
+.typing i:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+/* prose */
+.prose { overflow-wrap: break-word; }
+.prose > :first-child { margin-top: 0; }
+.prose > :last-child { margin-bottom: 0; }
+.prose p, .prose ul, .prose ol, .prose blockquote, .prose pre, .prose table { margin: 0 0 .8em; }
+.prose h1, .prose h2, .prose h3, .prose h4 { margin: 1.2em 0 .4em; }
+.prose h3 { font-size: 1.1em; }
+.prose li { margin-bottom: .25em; }
+.prose blockquote { border-left: 3px solid var(--brass); padding: 2px 0 2px 14px; color: var(--ink-2); }
+.prose pre { background: var(--leaf-2); padding: 12px 14px; border-radius: 8px; overflow-x: auto; font-size: 13.5px; }
+.prose pre code { background: none; padding: 0; }
+.prose table { border-collapse: collapse; display: block; overflow-x: auto; font-family: var(--ui); font-size: 14px; }
+.prose th, .prose td { border: 1px solid var(--rule); padding: 6px 10px; text-align: left; }
+.prose math[display="block"] { display: block; overflow-x: auto; overflow-y: hidden; padding: 6px 0; margin: .4em 0; }
+.prose math { font-size: 1.05em; }
+.prose hr { border: 0; border-top: 1px solid var(--rule); margin: 1.4em 0; }
+
+/* quiz */
+.quiz { display: flex; flex-direction: column; gap: 16px; max-width: 820px; }
+.q { margin: 0; min-width: 0; }
+.q legend { display: flex; align-items: center; gap: 10px; font: 600 11px var(--ui); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); padding: 0; float: left; width: 100%; margin-bottom: 10px; }
+.q legend + * { clear: both; }
+.qn { font-size: 14px; color: var(--brass); letter-spacing: 0; }
+.q > .prose { font: 17.5px/1.55 var(--read); margin-bottom: 14px; }
+.opts { display: flex; flex-direction: column; gap: 8px; }
+.opt { display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; cursor: pointer; }
+.opt:hover { border-color: var(--ink-3); }
+.opt input { margin-top: 4px; accent-color: var(--green); }
+.opt:has(input:checked) { border-color: var(--green); background: var(--green-soft); }
+.opt.correct, .opt.correct:has(input:checked) { border-color: var(--ok); background: var(--ok-soft); }
+.opt.chosen-wrong, .opt.chosen-wrong:has(input:checked) { border-color: var(--bad); background: var(--bad-soft); }
+.q.right { border-left: 4px solid var(--ok); }
+.q.partial { border-left: 4px solid var(--warn); }
+.q.wrong { border-left: 4px solid var(--bad); }
+.result { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 14.5px; }
+.verdict { font-weight: 600; margin: 0 0 8px; }
+.right .verdict { color: var(--ok); }
+.partial .verdict { color: var(--warn); }
+.wrong .verdict { color: var(--bad); }
+.result details { margin: 10px 0; }
+.result summary { cursor: pointer; color: var(--green); font-weight: 500; }
+.explain { color: var(--ink-2); margin-top: 8px; }
+.big-score { font-size: 56px; line-height: 1; margin: 4px 0 8px; }
+.score-card p { margin: 0; }
+
+/* review */
+.flashcard { max-width: 720px; margin: 10px auto 18px; min-height: 260px; display: flex; flex-direction: column; justify-content: center; padding: 34px 38px; box-shadow: var(--shadow); }
+.flashcard .front { font: 21px/1.5 var(--read); }
+.flashcard .back { border-top: 1px solid var(--rule); margin-top: 22px; padding-top: 20px; font: 17.5px/1.6 var(--read); }
+.review-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.grade { flex-direction: column; gap: 0; min-width: 96px; padding: 9px 14px; }
+.grade small { font: 12px var(--mono); color: var(--ink-3); }
+.g1 { border-color: color-mix(in srgb, var(--bad) 45%, var(--rule)); }
+.g3 { border-color: color-mix(in srgb, var(--ok) 45%, var(--rule)); }
+
+/* modal + toasts */
+.modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--ink) 35%, transparent); }
+.modal-card { background: var(--leaf); border: 1px solid var(--rule); border-radius: 12px; padding: 22px; max-width: 440px; width: 100%; box-shadow: var(--shadow); }
+.modal-card p { margin: 0; font-size: 15.5px; }
+.toasts { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 50; width: min(440px, calc(100vw - 32px)); }
+.toast { background: var(--ink); color: var(--paper); padding: 11px 16px; border-radius: 10px; font-size: 14px; box-shadow: var(--shadow); transition: opacity .4s, transform .4s; }
+.toast.ok { background: var(--ok); color: var(--on-status); }
+.toast.err { background: var(--bad); color: var(--on-status); }
+.toast.out { opacity: 0; transform: translateY(8px); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+@media (max-width: 900px) {
+  .course-body, .lesson-layout { grid-template-columns: minmax(0, 1fr); }
+  .course-aside, .lesson-aside { position: static; max-height: none; }
+  .lesson-aside { order: -1; }
+  .lesson-aside .pager { display: none; }
+  .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tools h3 { grid-column: 1 / -1; margin: 0; }
+  .tools .btn.block { margin: 0; justify-content: center; white-space: normal; text-align: center; }
+  .notes.collapsed { max-height: 120px; }
+}
+@media (max-width: 600px) {
+  body { font-size: 14.5px; }
+  .brand { font-size: 19px; }
+  .nav a { padding: 6px 8px; font-size: 14px; }
+  .stats { gap: 10px; }
+  .stat .num { font-size: 24px; }
+  .stat { font-size: 12px; }
+  .seg { grid-template-columns: 1fr; }
+  .module-head { flex-direction: column; }
+  .module-side { align-items: flex-start; flex-direction: row; }
+  .msg.assistant .prose { font-size: 17px; }
+  .msg.user { max-width: 92%; }
+  .flashcard { padding: 22px 20px; min-height: 200px; }
+  .keyrow { flex-wrap: wrap; }
+}
+</style>
+<nav class="topbar">
+  <a class="brand" href="#/">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M14 26 32 15l18 11v3H14z M18 32h5v15h-5z M29.5 32h5v15h-5z M41 32h5v15h-5z M13 50h38v4H13z"/></svg>
+    Lyceum
+  </a>
+  <div class="nav">
+    <a href="#/" data-r="home">Courses</a>
+    <a href="#/review" data-r="review">Review <span id="due-badge" class="badge" hidden>0</span></a>
+    <a href="#/settings" data-r="settings">Settings</a>
+  </div>
+</nav>
+<main id="view" class="wrap"><div class="loading-card"><span class="spin"></span>Opening your study…</div></main>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<script>
+(() => {
+  // js/store.js
+  var COLLECTIONS = ["courses", "lessons", "cards"];
+  var backend = null;
+  var initPromise = null;
+  function init() {
+    if (!initPromise) initPromise = pick();
+    return initPromise;
+  }
+  async function kind() {
+    await init();
+    return backend.kind;
+  }
+  async function pick() {
+    try {
+      if (window.claude?.use) {
+        const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+        const uid2 = db && user ? await user.id() : null;
+        if (db && uid2) {
+          backend = accountBackend(db, uid2);
+          return backend;
+        }
+      }
+    } catch (e) {
+      console.warn("Account storage unavailable, using browser storage", e);
+    }
+    backend = browserBackend();
+    return backend;
+  }
+  var CHUNK_BYTES = 18e4;
+  function accountBackend(db, uid2) {
+    const root = db.doc(`data/users/${uid2}/lyceum`);
+    const col = (name) => root.collection(name);
+    const kv = (k) => db.doc(`data/users/${uid2}/kv-${k}`);
+    const plain = (snap) => snap.exists ? JSON.parse(JSON.stringify(snap.data())) : void 0;
+    const size = (v) => new Blob([JSON.stringify(v)]).size;
+    async function writeDoc(ref, data) {
+      try {
+        await ref.set(data);
+      } catch (e) {
+        if (e?.code === "unavailable") {
+          await new Promise((r) => setTimeout(r, 400 + Math.random() * 600));
+          return ref.set(data);
+        }
+        throw friendly(e);
+      }
+    }
+    async function putLesson(body) {
+      const { messages = [], ...rest } = body;
+      const chunks = [[]];
+      let bytes2 = size(rest);
+      for (const m of messages) {
+        const s = size(m);
+        if (bytes2 + s > CHUNK_BYTES && chunks[chunks.length - 1].length) {
+          chunks.push([]);
+          bytes2 = 0;
+        }
+        chunks[chunks.length - 1].push(m);
+        bytes2 += s;
+      }
+      const c = col("lessons");
+      const prev = plain(await c.doc(body.id).get());
+      await writeDoc(c.doc(body.id), { ...rest, messages: chunks[0], chunks: chunks.length });
+      for (let i = 1; i < chunks.length; i++) await writeDoc(c.doc(`${body.id}~${i}`), { messages: chunks[i] });
+      for (let i = chunks.length; i < (prev?.chunks || 1); i++) await c.doc(`${body.id}~${i}`).delete();
+    }
+    async function getLesson(id) {
+      const c = col("lessons");
+      const main = plain(await c.doc(id).get());
+      if (!main) return void 0;
+      let messages = main.messages || [];
+      for (let i = 1; i < (main.chunks || 1); i++) {
+        const part = plain(await c.doc(`${id}~${i}`).get());
+        if (part) messages = messages.concat(part.messages || []);
+      }
+      delete main.chunks;
+      return { ...main, messages };
+    }
+    return {
+      kind: "account",
+      async all(name) {
+        const snap = await col(name).get();
+        return snap.docs.filter((d) => !d.id.includes("~")).map((d) => JSON.parse(JSON.stringify(d.data())));
+      },
+      async get(name, id) {
+        if (name === "lessons") return getLesson(id);
+        return plain(await col(name).doc(id).get());
+      },
+      async put(name, obj) {
+        if (name === "lessons") return putLesson(obj);
+        return writeDoc(col(name).doc(obj.id), obj);
+      },
+      async putMany(name, items) {
+        for (const it of items) await this.put(name, it);
+      },
+      async del(name, id) {
+        if (name === "lessons") {
+          const main = plain(await col(name).doc(id).get());
+          for (let i = 1; i < (main?.chunks || 1); i++) await col(name).doc(`${id}~${i}`).delete();
+        }
+        await col(name).doc(id).delete();
+      },
+      async kvGet(k) {
+        return plain(await kv(k).get())?.value;
+      },
+      async kvSet(k, value) {
+        return writeDoc(kv(k), { value });
+      }
+    };
+  }
+  function friendly(e) {
+    if (!e || e instanceof Error) return e;
+    const msgs = {
+      quota_exceeded: "Your Lyceum storage is full. Delete an old course to make room.",
+      resource_exhausted: "Saving too quickly. Wait a moment and try again.",
+      revoked: "This page lost access to your saved data. Reload the page."
+    };
+    return new Error(msgs[e.code] || e.message || "Could not save your changes.");
+  }
+  function browserBackend() {
+    let dbp;
+    const open = () => dbp || (dbp = new Promise((resolve, reject) => {
+      const req = indexedDB.open("lyceum", 2);
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        if (!d.objectStoreNames.contains("kv")) d.createObjectStore("kv");
+        for (const s of COLLECTIONS) if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: "id" });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    }));
+    const tx = async (store, mode2, fn) => {
+      const d = await open();
+      return new Promise((resolve, reject) => {
+        const t = d.transaction(store, mode2);
+        const req = fn(t.objectStore(store));
+        t.oncomplete = () => resolve(req ? req.result : void 0);
+        t.onerror = () => reject(t.error);
+        t.onabort = () => reject(t.error);
+      });
+    };
+    return {
+      kind: "browser",
+      all: (name) => tx(name, "readonly", (s) => s.getAll()),
+      get: (name, id) => tx(name, "readonly", (s) => s.get(id)),
+      put: (name, obj) => tx(name, "readwrite", (s) => s.put(obj)),
+      putMany: (name, items) => tx(name, "readwrite", (s) => {
+        items.forEach((i) => s.put(i));
+      }),
+      del: (name, id) => tx(name, "readwrite", (s) => s.delete(id)),
+      kvGet: (k) => tx("kv", "readonly", (s) => s.get(k)),
+      kvSet: (k, v) => tx("kv", "readwrite", (s) => s.put(v, k))
+    };
+  }
+  var all = async (n) => (await init()).all(n);
+  var get = async (n, id) => (await init()).get(n, id);
+  var put = async (n, o) => (await init()).put(n, o);
+  var putMany = async (n, items) => (await init()).putMany(n, items);
+  var del = async (n, id) => (await init()).del(n, id);
+  var kvGet = async (k) => (await init()).kvGet(k);
+  var kvSet = async (k, v) => (await init()).kvSet(k, v);
+
+  // js/ai.js
+  var API_URL = "https://api.anthropic.com/v1/messages";
+  var API_MODELS = { complex: "claude-opus-5-5", default: "claude-sonnet-5-5", quick: "claude-haiku-5-5" };
+  var MAX_INPUT_BYTES = 2e5;
+  var DEFAULT_SETTINGS = { profile: "", tutorTier: "complex", toolTier: "default", apiKey: "" };
+  var samplePromise = null;
+  function getSample() {
+    if (!samplePromise) samplePromise = window.claude?.use ? window.claude.use("sample").catch(() => null) : Promise.resolve(null);
+    return samplePromise;
+  }
+  async function mode() {
+    return await getSample() ? "plan" : "api";
+  }
+  async function getSettings() {
+    return { ...DEFAULT_SETTINGS, ...await kvGet("settings") || {} };
+  }
+  async function saveSettings(s) {
+    await kvSet("settings", s);
+  }
+  var SAMPLE_COPY = {
+    not_granted: "Lyceum needs your permission to use Claude. Reload the page and choose Allow when asked.",
+    sampling_disabled: "Claude is not available for this account right now.",
+    rate_limited: "You've hit a usage limit on your Claude plan, or sent requests too quickly. Wait a little, then try again.",
+    session_expired: "Your Claude session expired. Sign in again, then reload this page.",
+    refused: "Claude declined that request. Try rephrasing it.",
+    empty_completion: "Claude returned an empty answer. Try again.",
+    invalid_json: "Claude returned something Lyceum could not read. Try again.",
+    prompt_too_large: "This lesson has grown too long to send in one go. Start the next lesson, or generate notes to wrap this one up.",
+    upstream_error: "The connection to Claude dropped. Try again."
+  };
+  function toError(e) {
+    if (e instanceof Error) return e;
+    if (e && typeof e === "object" && e.code) {
+      const err = new Error(SAMPLE_COPY[e.code] || e.message || "Something went wrong talking to Claude.");
+      err.code = e.code;
+      err.partial = e.text;
+      if (e.code === "cancelled") err.name = "AbortError";
+      return err;
+    }
+    return new Error(String(e));
+  }
+  var bytes = (s) => new Blob([s]).size;
+  function normalize(turns) {
+    const out = [];
+    for (const t of turns) {
+      if (!t.content || !t.content.trim()) continue;
+      const last = out[out.length - 1];
+      if (last && last.role === t.role) last.content += "\n\n" + t.content;
+      else out.push({ role: t.role, content: t.content });
+    }
+    while (out.length && out[0].role !== "user") out.shift();
+    return out;
+  }
+  function fit(turns, budget) {
+    if (!turns.length) return turns;
+    let total = turns.reduce((n, t) => n + bytes(t.content), 0);
+    const kept = [...turns];
+    while (total > budget && kept.length > 3) {
+      const [removed] = kept.splice(1, 1);
+      total -= bytes(removed.content);
+    }
+    if (kept.length > 1 && kept[1].role === "assistant") {
+      kept.splice(1, 0, { role: "user", content: "(Earlier parts of this lesson were trimmed for length.)" });
+    }
+    return kept;
+  }
+  async function chat({ instructions, turns, tier, onText, signal, maxTokens = 4096 }) {
+    const s = await getSettings();
+    tier || (tier = s.tutorTier);
+    const sample = await getSample();
+    if (sample) {
+      const head = { role: "user", content: `INSTRUCTIONS FOR THIS TUTORING SESSION (from the Lyceum app; follow them throughout):
+
+${instructions}` };
+      const input = normalize(fit([head, ...turns], MAX_INPUT_BYTES));
+      try {
+        const r = await sample(input, { modelTier: tier, signal, cache: false, onText: onText ? ({ text }) => onText(text) : void 0 });
+        return r.text;
+      } catch (e) {
+        throw toError(e);
+      }
+    }
+    return apiStream({ system: instructions, messages: normalize(turns), model: API_MODELS[tier], onText, signal, maxTokens, apiKey: s.apiKey });
+  }
+  async function write({ instructions, prompt, tier, onText, signal, maxTokens = 6e3 }) {
+    const s = await getSettings();
+    tier || (tier = s.toolTier);
+    const sample = await getSample();
+    if (sample) {
+      try {
+        const r = await sample(`${instructions}
+
+---
+
+${prompt}`, { modelTier: tier, signal, cache: false, onText: onText ? ({ text }) => onText(text) : void 0 });
+        return r.text;
+      } catch (e) {
+        throw toError(e);
+      }
+    }
+    return apiStream({ system: instructions, messages: [{ role: "user", content: prompt }], model: API_MODELS[tier], onText, signal, maxTokens, apiKey: s.apiKey });
+  }
+  async function json({ instructions, prompt, schema, tier, signal, maxTokens = 12e3 }) {
+    const s = await getSettings();
+    tier || (tier = s.toolTier);
+    const sample = await getSample();
+    if (sample) {
+      const input = `${instructions}
+
+---
+
+${prompt}
+
+---
+
+Reply with ONLY one JSON object (no prose, no code fence) that matches this JSON Schema:
+${JSON.stringify(schema)}`;
+      try {
+        const out = await sample.json(input, { modelTier: tier, signal, cache: false });
+        if (!out || typeof out !== "object") throw new Error("Claude returned something Lyceum could not read. Try again.");
+        return out;
+      } catch (e) {
+        throw toError(e);
+      }
+    }
+    return apiTool({ system: instructions, prompt, schema, model: API_MODELS[tier], signal, maxTokens, apiKey: s.apiKey });
+  }
+  function apiHeaders(key) {
+    if (!key) throw new Error("Open Lyceum inside Claude to use your Claude plan, or add an Anthropic API key in Settings.");
+    return {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    };
+  }
+  async function apiCheck(res) {
+    if (res.ok) return;
+    let msg = `${res.status} ${res.statusText}`;
+    try {
+      msg = (await res.json()).error?.message || msg;
+    } catch {
+    }
+    if (res.status === 401) msg = `Your API key was rejected. Check it in Settings. (${msg})`;
+    throw new Error(msg);
+  }
+  async function apiStream({ system, messages, model, onText, signal, maxTokens, apiKey }) {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: apiHeaders(apiKey),
+      signal,
+      body: JSON.stringify({ model, max_tokens: maxTokens, system, messages, stream: true })
+    });
+    await apiCheck(res);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    let full = "";
+    for (; ; ) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+      let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const chunk = buf.slice(0, i);
+        buf = buf.slice(i + 2);
+        for (const line of chunk.split("\n")) {
+          if (!line.startsWith("data:")) continue;
+          let ev;
+          try {
+            ev = JSON.parse(line.slice(5).trim());
+          } catch {
+            continue;
+          }
+          if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
+            full += ev.delta.text;
+            onText && onText(full);
+          } else if (ev.type === "error") throw new Error(ev.error?.message || "The response stream failed.");
+        }
+      }
+    }
+    return full;
+  }
+  async function apiTool({ system, prompt, schema, model, signal, maxTokens, apiKey }) {
+    const tool = { name: "respond", description: "Return the requested data.", input_schema: schema };
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: apiHeaders(apiKey),
+      signal,
+      body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: "user", content: prompt }], tools: [tool], tool_choice: { type: "tool", name: "respond" } })
+    });
+    await apiCheck(res);
+    const j = await res.json();
+    if (j.stop_reason === "max_tokens") throw new Error("The response was cut off. Try again.");
+    const block = (j.content || []).find((c) => c.type === "tool_use");
+    if (!block) throw new Error("Claude did not return the expected structure. Try again.");
+    return block.input;
+  }
+
+  // js/prompts.js
+  var LEVEL = `The student wants to be taught at the graduate / post-graduate level: the depth of a strong master's or PhD seminar, not an introductory survey.`;
+  function syllabusSystem(profile) {
+    return `You are a distinguished professor designing a rigorous, self-contained graduate course for a single dedicated student.
+${LEVEL}
+${profile ? `
+About the student (use this to calibrate prerequisites and emphasis):
+${profile}
+` : ""}
+Design principles:
+- Sequence modules so each builds on the last, from foundations the field assumes through to the current research frontier and open problems.
+- Each lesson must be teachable in one focused session (roughly 45\u201390 minutes of dialogue) and have 2\u20135 concrete, testable learning objectives written with strong verbs (derive, prove, critique, compare, apply, formalise...).
+- Include the field's canonical primary texts, papers or authors in core_texts \u2014 only works you are confident exist. Never invent references.
+- Prefer substance over breadth; it is a graduate course, so include methods, formal tools, major debates and historiography where relevant.`;
+  }
+  var SYLLABUS_TOOL = {
+    name: "create_syllabus",
+    description: "Return the full course syllabus.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Course title, like a university course name." },
+        description: { type: "string", description: "2\u20134 sentence overview of what the course covers and why." },
+        prerequisites: { type: "array", items: { type: "string" }, description: "Knowledge the course assumes." },
+        core_texts: { type: "array", items: { type: "string" }, description: 'Canonical books/papers: "Author, Title (year)".' },
+        modules: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              summary: { type: "string", description: "One or two sentences." },
+              lessons: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    objectives: { type: "array", items: { type: "string" } }
+                  },
+                  required: ["title", "objectives"]
+                }
+              }
+            },
+            required: ["title", "summary", "lessons"]
+          }
+        }
+      },
+      required: ["title", "description", "prerequisites", "core_texts", "modules"]
+    }
+  };
+  function syllabusRequest({ subject, focus, background, size }) {
+    const sizes = {
+      short: "4 modules with 3 lessons each",
+      standard: "6 modules with 3\u20134 lessons each",
+      deep: "9\u201310 modules with 3\u20135 lessons each"
+    };
+    return `Design a graduate-level course on: ${subject}
+${focus ? `
+What I want to get out of it / focus areas: ${focus}` : ""}
+${background ? `
+My current background in this subject: ${background}` : ""}
+
+Length: ${sizes[size] || sizes.standard}.`;
+  }
+  function outline(course, mi, li) {
+    return course.modules.map((m, i) => {
+      const ls = m.lessons.map((l, j) => `   ${i === mi && j === li ? "\u2192" : " "} ${i + 1}.${j + 1} ${l.title}${l.status === "done" ? " (completed)" : ""}`).join("\n");
+      return `Module ${i + 1}: ${m.title}
+${ls}`;
+    }).join("\n");
+  }
+  function priorSummaries(course, mi, li) {
+    const out = [];
+    course.modules.forEach(
+      (m, i) => m.lessons.forEach((l, j) => {
+        const before = i < mi || i === mi && j < li;
+        if (before && l.status === "done" && l.recap) out.push(`- ${i + 1}.${j + 1} ${l.title}: ${l.recap}`);
+      })
+    );
+    return out.slice(-12).join("\n");
+  }
+  function tutorSystem(course, mi, li, settings) {
+    const m = course.modules[mi];
+    const l = m.lessons[li];
+    const prior = priorSummaries(course, mi, li);
+    return `You are a world-class professor acting as a private tutor to one dedicated student. ${LEVEL}
+
+COURSE: ${course.title}
+${course.description}
+${course.core_texts?.length ? `Core texts: ${course.core_texts.join("; ")}` : ""}
+
+SYLLABUS (\u2192 marks the current lesson):
+${outline(course, mi, li)}
+
+CURRENT LESSON: ${mi + 1}.${li + 1} ${l.title} (Module: ${m.title})
+Learning objectives:
+${l.objectives.map((o) => `- ${o}`).join("\n")}
+${prior ? `
+What the student has already covered:
+${prior}` : ""}
+${settings.profile ? `
+ABOUT THE STUDENT:
+${settings.profile}` : ""}
+
+HOW TO TEACH
+- Rigour: precise definitions, formal notation where the field uses it, derivations, proofs or close reading of primary sources where relevant; name the competing schools of thought, the major debates, and where the research frontier and open problems are.
+- Intuition first, then rigour. Use concrete examples, worked problems, counterexamples and edge cases. Do not dumb things down.
+- Teach in segments of roughly 400\u2013700 words. End every segment with ONE probing question that makes the student apply, extend or critique the idea, then stop and wait for the answer.
+- When the student answers, assess it honestly: say exactly what is right, correct what is wrong with precision, and push one level deeper. Never flatter or pad.
+- If the student asks a tangent question, answer it well, then steer back to the objectives.
+- Formatting: Markdown with occasional ### headings, short paragraphs, LaTeX for maths ($...$ inline, $$...$$ display). No giant walls of bullet points.
+- Citations: cite canonical works and authors where useful, but only ones you are confident exist. If unsure, describe the idea without a citation. Never invent references, quotes or page numbers. Say when a claim is contested or your knowledge may be dated.
+- When every objective has been covered and the student has shown understanding, say so clearly, give a tight recap, and suggest they generate notes, take the quiz and make flashcards.`;
+  }
+  var KICKOFF = "Begin the lesson. Open with a short orientation (why this matters and how it connects to what came before), then teach the first segment.";
+  var QUICK_ACTIONS = [
+    ["Continue", "Continue to the next segment."],
+    ["Go deeper", "Go deeper on that last point: more rigour, the formal treatment, and what the literature says."],
+    ["Worked example", "Give me a fully worked example or case study of this."],
+    ["Challenge me", "Give me a hard problem or a critical question on this material and let me attempt it before you give anything away."],
+    ["I'm lost", "I'm not following. Re-explain the last part from a different angle, with more intuition, then check my understanding."],
+    ["Big picture", "Zoom out: how does this fit into the field as a whole, and what are the open questions here?"]
+  ];
+  function transcript(lesson) {
+    return lesson.messages.filter((m) => !m.hidden).map((m) => `${m.role === "user" ? "STUDENT" : "TUTOR"}: ${m.content}`).join("\n\n");
+  }
+  function lessonContext(course, mi, li) {
+    const m = course.modules[mi];
+    const l = m.lessons[li];
+    const t = transcript(l);
+    return `Course: ${course.title}
+Lesson ${mi + 1}.${li + 1}: ${l.title} (Module: ${m.title})
+Objectives:
+${l.objectives.map((o) => `- ${o}`).join("\n")}
+
+${t ? `Lesson transcript:
+"""
+${t}
+"""` : "(No transcript yet: base this on the objectives and the standard graduate treatment of the topic.)"}`;
+  }
+  var NOTES_SYSTEM = `You write superb graduate-level study notes in Obsidian-flavoured Markdown. ${LEVEL}
+Rules: no top-level # title (the file already has one). Use ## and ### headings. LaTeX for maths ($...$, $$...$$). Be dense and precise, not chatty. Only cite works you are confident exist; never invent references.`;
+  function notesRequest(course, mi, li) {
+    return `${lessonContext(course, mi, li)}
+
+Write study notes for this lesson with these sections:
+## Overview
+## Key concepts and definitions
+## Core arguments, derivations or mechanisms
+## Worked example
+## Common misconceptions
+## Connections (to earlier lessons and the wider field)
+## Further reading (real works only, with one line on why)
+## Open questions
+
+Emphasise what the student actually explored in the transcript, and fill gaps against the objectives.`;
+  }
+  var RECAP_TOOL = {
+    name: "lesson_recap",
+    description: "One-sentence recap of what was learned, for future lessons to build on.",
+    input_schema: {
+      type: "object",
+      properties: { recap: { type: "string", description: "Max ~40 words." } },
+      required: ["recap"]
+    }
+  };
+  var FLASHCARD_TOOL = {
+    name: "create_flashcards",
+    description: "Return spaced-repetition flashcards.",
+    input_schema: {
+      type: "object",
+      properties: {
+        cards: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              front: { type: "string", description: "A precise question or prompt. Markdown/LaTeX allowed." },
+              back: { type: "string", description: "A concise, complete answer. Markdown/LaTeX allowed." }
+            },
+            required: ["front", "back"]
+          }
+        }
+      },
+      required: ["cards"]
+    }
+  };
+  function flashcardRequest(course, mi, li) {
+    return `${lessonContext(course, mi, li)}
+
+Create 10\u201315 graduate-level flashcards for long-term retention of this lesson. Follow good spaced-repetition practice: one idea per card, test understanding and not just recall (why/how/compare/what-follows cards, not only definitions), unambiguous answers, no trivia.`;
+  }
+  var QUIZ_SYSTEM = `You are a rigorous graduate examiner. ${LEVEL} Write questions that test understanding, application and critical reasoning, not mere recall. Distractors must be plausible to someone with a shallow understanding. Use LaTeX for maths ($...$).`;
+  var QUIZ_TOOL = {
+    name: "create_quiz",
+    description: "Return a quiz.",
+    input_schema: {
+      type: "object",
+      properties: {
+        questions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: { type: "string", enum: ["mcq", "written"] },
+              prompt: { type: "string" },
+              options: { type: "array", items: { type: "string" }, description: "mcq only: exactly 4 options, no letter prefixes." },
+              answer_index: { type: "integer", description: "mcq only: index (0-3) of the correct option." },
+              model_answer: { type: "string", description: "What an excellent answer contains." },
+              explanation: { type: "string", description: "Why the answer is correct, and why tempting alternatives are wrong." }
+            },
+            required: ["type", "prompt", "model_answer", "explanation"]
+          }
+        }
+      },
+      required: ["questions"]
+    }
+  };
+  function lessonQuizRequest(course, mi, li) {
+    return `${lessonContext(course, mi, li)}
+
+Write a quiz on this lesson: 5 multiple-choice questions and 2 written questions (short essay, proof sketch, derivation or problem; answerable in a paragraph).`;
+  }
+  function moduleExamRequest(course, mi) {
+    const m = course.modules[mi];
+    const lessons = m.lessons.map((l, j) => `${mi + 1}.${j + 1} ${l.title}
+${l.objectives.map((o) => `  - ${o}`).join("\n")}${l.recap ? `
+  Covered: ${l.recap}` : ""}`).join("\n");
+    return `Course: ${course.title}
+Module ${mi + 1}: ${m.title}. ${m.summary}
+
+Lessons in this module:
+${lessons}
+
+Write a module exam: 8 multiple-choice questions and 4 written questions. Written questions should integrate ideas across lessons, the way a qualifying exam would.`;
+  }
+  var GRADE_SYSTEM = `You are a fair but demanding graduate examiner. Grade each written answer against the model answer. Give credit for correct reasoning expressed differently. Be specific in feedback: what was right, what was missing or wrong, and how to improve. Use LaTeX for maths ($...$).`;
+  var GRADE_TOOL = {
+    name: "grade_answers",
+    description: "Return grades for the written answers.",
+    input_schema: {
+      type: "object",
+      properties: {
+        grades: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              score: { type: "number", description: "0 to 1, in steps of 0.25." },
+              feedback: { type: "string" }
+            },
+            required: ["id", "score", "feedback"]
+          }
+        }
+      },
+      required: ["grades"]
+    }
+  };
+  function gradeRequest(items) {
+    return items.map((it) => `### Question ${it.id}
+${it.prompt}
+
+Model answer:
+${it.model_answer}
+
+Student answer:
+${it.answer || "(no answer)"}`).join("\n\n---\n\n");
+  }
+
+  // js/render.js
+  function h(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  }
+  function md(src) {
+    src = String(src || "");
+    const code = [];
+    const math = [];
+    src = src.replace(/```[\s\S]*?(```|$)|`[^`\n]+`/g, (m) => {
+      code.push(m);
+      return `\0C${code.length - 1}\0`;
+    });
+    const addMath = (tex, display) => {
+      math.push({ tex, display });
+      return `@@M${math.length - 1}@@`;
+    };
+    src = src.replace(/\$\$([\s\S]+?)\$\$/g, (_, t) => addMath(t, true)).replace(/\\\[([\s\S]+?)\\\]/g, (_, t) => addMath(t, true)).replace(/\\\(([\s\S]+?)\\\)/g, (_, t) => addMath(t, false)).replace(/(^|[^\\$\w])\$(?![\s\d.,]*\s)(?!\s)([^\n$]+?)(?<!\s)\$(?![\w$])/g, (_, pre, t) => pre + addMath(t, false));
+    src = src.replace(/\u0000C(\d+)\u0000/g, (_, i) => code[+i]);
+    const parse = window.marked ? (s) => window.marked.parse(s, { gfm: true, breaks: false }) : (s) => `<p>${h(s)}</p>`;
+    let html = parse(src);
+    html = window.DOMPurify ? window.DOMPurify.sanitize(html) : html;
+    return html.replace(/@@M(\d+)@@/g, (_, i) => {
+      const m = math[+i];
+      if (!window.katex) return `<code>${h(m.tex)}</code>`;
+      try {
+        return window.katex.renderToString(m.tex, { displayMode: m.display, throwOnError: false, output: "mathml" });
+      } catch {
+        return `<code>${h(m.tex)}</code>`;
+      }
+    });
+  }
+
+  // js/obsidian.js
+  var VAULT_FOLDER = "00 Notes/Courses";
+  var safe = (s) => String(s).replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 90) || "Untitled";
+  var slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+  var pad = (n) => String(n).padStart(2, "0");
+  var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  var yq = (s) => JSON.stringify(String(s));
+  var demote = (s) => String(s).replace(/^(#{1,5}) /gm, "#$1 ");
+  var oneLine = (s) => String(s).replace(/\n+/g, "<br>").replace(/::/g, ": :");
+  function lessonFile(course, mi, li) {
+    return `${pad(mi + 1)}.${pad(li + 1)} ${safe(course.modules[mi].lessons[li].title)}`;
+  }
+  function lessonMarkdown(course, mi, li, body, cards) {
+    const m = course.modules[mi];
+    const l = m.lessons[li];
+    const dir = `${VAULT_FOLDER}/${safe(course.title)}`;
+    const tag = slug(course.title);
+    const messages = body?.messages || [];
+    const notes = body?.notes || "";
+    const parts = [];
+    parts.push(`---
+course: ${yq(course.title)}
+module: ${yq(`${mi + 1}. ${m.title}`)}
+lesson: ${yq(`${mi + 1}.${li + 1} ${l.title}`)}
+status: ${l.status || "not-started"}
+updated: ${today()}
+tags: [lyceum, course/${tag}]
+---`);
+    parts.push(`# ${l.title}`);
+    parts.push(`Part of [[${dir}/${safe(course.title)}|${course.title}]] \xB7 Module ${mi + 1}: ${m.title}`);
+    parts.push(`## Objectives
+${l.objectives.map((o) => `- [${l.status === "done" ? "x" : " "}] ${o}`).join("\n")}`);
+    if (l.recap) parts.push(`> [!summary] Recap
+> ${l.recap}`);
+    parts.push(`## Notes
+${notes ? demote(notes) : '_No notes generated yet. Use "Generate notes" in Lyceum._'}`);
+    if (cards.length) {
+      parts.push(`## Flashcards
+#flashcards/${tag}
+
+${cards.map((c) => `${oneLine(c.front)}::${oneLine(c.back)}`).join("\n")}`);
+    }
+    if (l.quizHistory?.length) {
+      parts.push(`## Quiz history
+${l.quizHistory.map((q) => `- ${q.date}: ${Math.round(q.score * 100)}%`).join("\n")}`);
+    }
+    if (transcript({ messages })) {
+      const quoted = messages.filter((x) => !x.hidden).map((x) => `**${x.role === "user" ? "Me" : "Tutor"}:** ${x.content}`).join("\n\n").split("\n").map((line) => `> ${line}`).join("\n");
+      parts.push(`## Transcript
+> [!quote]- Full lesson dialogue
+${quoted}`);
+    }
+    return parts.join("\n\n") + "\n";
+  }
+  function courseMarkdown(course) {
+    const dir = `${VAULT_FOLDER}/${safe(course.title)}`;
+    const done = course.modules.reduce((n, m) => n + m.lessons.filter((l) => l.status === "done").length, 0);
+    const total = course.modules.reduce((n, m) => n + m.lessons.length, 0);
+    const parts = [];
+    parts.push(`---
+course: ${yq(course.title)}
+subject: ${yq(course.subject)}
+started: ${new Date(course.createdAt).toISOString().slice(0, 10)}
+updated: ${today()}
+progress: ${done}/${total}
+tags: [lyceum, course, course/${slug(course.title)}]
+---`);
+    parts.push(`# ${course.title}`);
+    parts.push(course.description);
+    if (course.prerequisites?.length) parts.push(`## Prerequisites
+${course.prerequisites.map((p) => `- ${p}`).join("\n")}`);
+    if (course.core_texts?.length) parts.push(`## Core texts
+${course.core_texts.map((p) => `- ${p}`).join("\n")}`);
+    parts.push(
+      `## Syllabus
+` + course.modules.map((m, i) => {
+        const ls = m.lessons.map((l, j) => `- [${l.status === "done" ? "x" : " "}] [[${dir}/${lessonFile(course, i, j)}|${i + 1}.${j + 1} ${l.title}]]`).join("\n");
+        const exams = (m.examHistory || []).map((e) => `${e.date}: ${Math.round(e.score * 100)}%`).join(", ");
+        return `### Module ${i + 1}: ${m.title}
+${m.summary}
+
+${ls}${exams ? `
+
+Exam results: ${exams}` : ""}`;
+      }).join("\n\n")
+    );
+    return parts.join("\n\n") + "\n";
+  }
+  var downloadsPromise = null;
+  function getDownloads() {
+    if (!downloadsPromise) downloadsPromise = window.claude?.use ? window.claude.use("downloads").catch(() => null) : Promise.resolve(null);
+    return downloadsPromise;
+  }
+  async function saveFile(filename, data) {
+    const dl = await getDownloads();
+    if (dl) {
+      try {
+        await dl.save({ filename, data });
+        return `Saved ${filename}`;
+      } catch (e) {
+        if (e?.code === "declined") return "Download cancelled";
+        throw new Error(e?.message || "The download did not go through.");
+      }
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type: "text/plain" }));
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 1e3);
+    return `Downloaded ${filename}`;
+  }
+  async function cardsFor(lessonId) {
+    return (await all("cards")).filter((c) => c.lessonId === lessonId);
+  }
+  async function exportLesson(course, mi, li, body) {
+    const l = course.modules[mi].lessons[li];
+    const text = lessonMarkdown(course, mi, li, body, await cardsFor(l.id));
+    return saveFile(`${lessonFile(course, mi, li)}.md`, text);
+  }
+  async function exportCourse(course) {
+    if (!window.JSZip) throw new Error("The zip tool did not load. Check your connection and reload.");
+    const zip = new window.JSZip();
+    const folder = zip.folder(safe(course.title));
+    const cards = await all("cards");
+    folder.file(`${safe(course.title)}.md`, courseMarkdown(course));
+    for (const [i, m] of course.modules.entries()) {
+      for (const [j, l] of m.lessons.entries()) {
+        if (l.status === "not-started" && !l.hasNotes) continue;
+        const body = await get("lessons", l.id) || {};
+        folder.file(`${lessonFile(course, i, j)}.md`, lessonMarkdown(course, i, j, body, cards.filter((c) => c.lessonId === l.id)));
+      }
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    return saveFile(`${safe(course.title)}.zip`, blob);
+  }
+  var VAULT_HINT = `Unzip into your vault's "${VAULT_FOLDER}" folder.`;
+
+  // js/app.js
+  var view = document.getElementById("view");
+  var uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-5);
+  var today2 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  var trunc = (s, n) => s.length > n ? s.slice(0, n - 1) + "\u2026" : s;
+  var activeController = null;
+  function toast(msg, kind2 = "") {
+    const t = document.createElement("div");
+    t.className = `toast ${kind2}`;
+    t.textContent = msg;
+    const box = document.getElementById("toasts");
+    box.appendChild(t);
+    while (box.children.length > 3) box.firstChild.remove();
+    setTimeout(() => t.classList.add("out"), 4200);
+    setTimeout(() => t.remove(), 4700);
+  }
+  async function withBusy(btn, label, fn) {
+    const old = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spin"></span>${h(label)}`;
+    try {
+      return await fn();
+    } catch (e) {
+      if (e.name !== "AbortError") toast(e.message, "err");
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = old;
+    }
+  }
+  function ask(message, okLabel = "Confirm", danger = false) {
+    return new Promise((resolve) => {
+      const wrap = document.createElement("div");
+      wrap.className = "modal";
+      wrap.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true">
+      <p>${h(message)}</p>
+      <div class="actions"><button class="btn ${danger ? "danger" : "primary"}" id="m-ok">${h(okLabel)}</button><button class="btn ghost" id="m-cancel">Cancel</button></div>
+    </div>`;
+      document.body.appendChild(wrap);
+      const done = (v) => {
+        wrap.remove();
+        resolve(v);
+      };
+      wrap.querySelector("#m-ok").onclick = () => done(true);
+      wrap.querySelector("#m-cancel").onclick = () => done(false);
+      wrap.onclick = (e) => e.target === wrap && done(false);
+      wrap.querySelector("#m-ok").focus();
+    });
+  }
+  function lessonCount(course) {
+    let done = 0, total = 0;
+    course.modules.forEach((m) => m.lessons.forEach((l) => {
+      total++;
+      if (l.status === "done") done++;
+    }));
+    return { done, total };
+  }
+  function nextLesson(course) {
+    for (let i = 0; i < course.modules.length; i++)
+      for (let j = 0; j < course.modules[i].lessons.length; j++)
+        if (course.modules[i].lessons[j].status !== "done") return [i, j];
+    return null;
+  }
+  function findLesson(course, lid) {
+    for (let i = 0; i < course.modules.length; i++) {
+      const j = course.modules[i].lessons.findIndex((l) => l.id === lid);
+      if (j >= 0) return [i, j];
+    }
+    return null;
+  }
+  async function loadCourse(id) {
+    const c = await get("courses", id);
+    if (!c) throw new Error("That course no longer exists.");
+    return c;
+  }
+  async function saveCourse(c) {
+    c.updatedAt = Date.now();
+    const clean = JSON.parse(JSON.stringify(c, (k, v) => k === "messages" || k === "notes" ? void 0 : v));
+    await put("courses", clean);
+  }
+  async function loadLessonBody(l) {
+    const body = await get("lessons", l.id) || {};
+    l.messages = body.messages || [];
+    l.notes = body.notes || "";
+  }
+  async function saveLessonBody(c, l) {
+    await put("lessons", { id: l.id, courseId: c.id, messages: l.messages || [], notes: l.notes || "" });
+  }
+  async function updateNavBadge() {
+    try {
+      const due = (await all("cards")).filter((c) => c.due <= Date.now()).length;
+      const b = document.getElementById("due-badge");
+      b.textContent = due;
+      b.hidden = !due;
+    } catch {
+    }
+  }
+  function setActiveNav(r) {
+    document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.r === r));
+  }
+  var currentPath = location.hash.startsWith("#/") ? location.hash.slice(2) : "";
+  function go(path) {
+    currentPath = path.replace(/^#?\/?/, "");
+    route();
+  }
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest('a[href^="#/"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    go(a.getAttribute("href").slice(2));
+  });
+  async function route() {
+    if (activeController) activeController.abort();
+    activeController = null;
+    const [r = "", ...args] = currentPath.split("/").map(decodeURIComponent);
+    setActiveNav(r === "review" || r === "settings" ? r : "home");
+    window.scrollTo(0, 0);
+    try {
+      if (r === "new") await newCoursePage();
+      else if (r === "course") await coursePage(args[0]);
+      else if (r === "lesson") await lessonPage(args[0], args[1]);
+      else if (r === "quiz") await quizPage(args[0], args[1], args[2]);
+      else if (r === "review") await reviewPage(args[0]);
+      else if (r === "settings") await settingsPage();
+      else await homePage();
+    } catch (e) {
+      view.innerHTML = `<div class="empty"><h2>Something went wrong</h2><p>${h(e.message)}</p><a class="btn" href="#/">Back to courses</a></div>`;
+    }
+    updateNavBadge();
+  }
+  async function homePage() {
+    const [courses, cards, s, mode2] = await Promise.all([all("courses"), all("cards"), getSettings(), mode()]);
+    courses.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    const due = cards.filter((c) => c.due <= Date.now()).length;
+    const lessonsDone = courses.reduce((n, c) => n + lessonCount(c).done, 0);
+    const needsSetup = mode2 === "api" && !s.apiKey;
+    view.innerHTML = `
+    ${needsSetup ? `<div class="banner"><strong>Open Lyceum inside Claude</strong> to learn on your Claude plan. Running it elsewhere needs an Anthropic API key. <a href="#/settings">Settings</a></div>` : ""}
+    ${!s.profile && !needsSetup ? `<div class="banner soft">Tell your tutor about your background so every course fits you. <a href="#/settings">Add a learner profile</a></div>` : ""}
+    <header class="page-head">
+      <div><p class="eyebrow">Your study</p><h1>Courses</h1></div>
+      <a class="btn primary" href="#/new">New course</a>
+    </header>
+    <section class="stats">
+      <div class="stat"><span class="num">${courses.length}</span><span>courses</span></div>
+      <div class="stat"><span class="num">${lessonsDone}</span><span>lessons completed</span></div>
+      <a class="stat link" href="#/review"><span class="num">${due}</span><span>flashcards due</span></a>
+    </section>
+    ${courses.length ? `<div class="course-grid">${courses.map(courseCard).join("")}</div>` : `<div class="empty">
+            <h2>No courses yet</h2>
+            <p>Name any subject and your tutor designs a graduate course around you: modules, lessons with clear objectives, and the key texts of the field.</p>
+            <div class="examples">${["Measure-theoretic probability", "The Late Roman Republic", "Comparative constitutional law", "Protein folding and dynamics"].map((x) => `<a class="chip" href="#/new/${encodeURIComponent(x)}">${h(x)}</a>`).join("")}</div>
+            <a class="btn primary" href="#/new">Design my first course</a>
+          </div>`}`;
+  }
+  function courseCard(c) {
+    const { done, total } = lessonCount(c);
+    const nx = nextLesson(c);
+    const pct = total ? Math.round(done / total * 100) : 0;
+    const nxl = nx ? c.modules[nx[0]].lessons[nx[1]] : null;
+    return `<article class="course-card">
+    <a class="cover" href="#/course/${c.id}">
+      <p class="eyebrow">${h(c.subject)}</p>
+      <h3>${h(c.title)}</h3>
+      <p class="muted clamp">${h(c.description)}</p>
+    </a>
+    <div class="progress" title="${pct}% complete"><div style="width:${pct}%"></div></div>
+    <div class="card-foot">
+      <span class="muted mono">${done}/${total} lessons</span>
+      ${nxl ? `<a class="btn small" href="#/lesson/${c.id}/${nxl.id}">${nxl.status === "in-progress" ? "Resume" : "Next"}: ${h(trunc(nxl.title, 26))}</a>` : '<span class="pill done">Complete</span>'}
+    </div>
+  </article>`;
+  }
+  async function newCoursePage() {
+    const preset = decodeURIComponent(currentPath.split("/")[1] || "");
+    view.innerHTML = `
+    <a class="crumb" href="#/">\u2190 All courses</a>
+    <header class="page-head"><div><p class="eyebrow">New course</p><h1>What do you want to master?</h1></div></header>
+    <form id="nc" class="panel form">
+      <label for="nc-subject">Subject <span class="req">*</span></label>
+      <input id="nc-subject" name="subject" required value="${h(preset)}" placeholder="e.g. Measure-theoretic probability, the Late Roman Republic, protein folding">
+      <label for="nc-focus">Focus and goals <span class="muted">(optional)</span></label>
+      <textarea id="nc-focus" name="focus" rows="3" placeholder="What do you want to be able to do or understand by the end? Anything to emphasise or skip?"></textarea>
+      <label for="nc-bg">Your background in this subject <span class="muted">(optional)</span></label>
+      <textarea id="nc-bg" name="background" rows="2" placeholder="e.g. Took calculus years ago; comfortable with Python; read a couple of popular books on it."></textarea>
+      <fieldset class="seg">
+        <legend>Course length</legend>
+        <label><input type="radio" id="sz-s" name="size" value="short"><span>Short<small>4 modules, about 12 lessons</small></span></label>
+        <label><input type="radio" id="sz-m" name="size" value="standard" checked><span>Standard<small>6 modules, about 20 lessons</small></span></label>
+        <label><input type="radio" id="sz-l" name="size" value="deep"><span>Deep<small>10 modules, about 40 lessons</small></span></label>
+      </fieldset>
+      <div class="actions"><button class="btn primary" type="submit">Design my course</button><a class="btn ghost" href="#/">Cancel</a></div>
+      <p class="muted small">Your tutor drafts the full syllabus. Expect 30 seconds to 2 minutes while it thinks it through.</p>
+    </form>`;
+    if (!preset) document.getElementById("nc-subject").focus();
+    document.getElementById("nc").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = Object.fromEntries(new FormData(e.target));
+      const btn = e.target.querySelector("button[type=submit]");
+      await withBusy(btn, "Designing your course\u2026", async () => {
+        const s = await getSettings();
+        activeController = new AbortController();
+        const syl = await json({
+          instructions: syllabusSystem(s.profile),
+          prompt: syllabusRequest(f),
+          schema: SYLLABUS_TOOL.input_schema,
+          tier: s.tutorTier,
+          maxTokens: 16e3,
+          signal: activeController.signal
+        });
+        const course = {
+          id: uid(),
+          subject: f.subject.trim(),
+          focus: f.focus,
+          background: f.background,
+          title: String(syl.title || f.subject),
+          description: String(syl.description || ""),
+          prerequisites: syl.prerequisites || [],
+          core_texts: syl.core_texts || [],
+          createdAt: Date.now(),
+          modules: (syl.modules || []).map((m) => ({
+            id: uid(),
+            title: m.title,
+            summary: m.summary || "",
+            examHistory: [],
+            lessons: (m.lessons || []).map((l) => ({ id: uid(), title: l.title, objectives: l.objectives || [], status: "not-started", recap: "", quizHistory: [] }))
+          }))
+        };
+        if (!course.modules.length || !course.modules.some((m) => m.lessons.length)) throw new Error("The syllabus came back empty. Try again.");
+        await saveCourse(course);
+        go(`course/${course.id}`);
+      });
+    });
+  }
+  async function coursePage(id) {
+    const c = await loadCourse(id);
+    const cards = (await all("cards")).filter((x) => x.courseId === id);
+    const due = cards.filter((x) => x.due <= Date.now()).length;
+    const { done, total } = lessonCount(c);
+    const nx = nextLesson(c);
+    const nxl = nx ? c.modules[nx[0]].lessons[nx[1]] : null;
+    view.innerHTML = `
+    <a class="crumb" href="#/">\u2190 All courses</a>
+    <header class="course-head">
+      <p class="eyebrow">${h(c.subject)}</p>
+      <h1>${h(c.title)}</h1>
+      <p class="lede">${h(c.description)}</p>
+      <div class="progress big"><div style="width:${total ? done / total * 100 : 0}%"></div></div>
+      <p class="muted small mono">${done} of ${total} lessons complete \xB7 ${cards.length} flashcards${due ? ` \xB7 <a href="#/review/${id}">${due} due</a>` : ""}</p>
+      <div class="actions">
+        ${nxl ? `<a class="btn primary" href="#/lesson/${id}/${nxl.id}">${nxl.status === "in-progress" ? "Resume" : done ? "Continue" : "Start"}: ${h(nxl.title)}</a>` : ""}
+        <a class="btn" href="#/review/${id}">Review flashcards</a>
+        <button class="btn" id="exp" title="${h(VAULT_HINT)}">Export to Obsidian (.zip)</button>
+      </div>
+    </header>
+    <div class="course-body">
+      <div class="modules">
+        ${c.modules.map(
+      (m, i) => `<section class="module">
+              <div class="module-head">
+                <div><p class="eyebrow">Module ${i + 1}</p><h2>${h(m.title)}</h2><p class="muted">${h(m.summary)}</p></div>
+                <div class="module-side">
+                  <a class="btn small" href="#/quiz/${id}/module/${m.id}">Module exam</a>
+                  ${m.examHistory?.length ? `<span class="muted small mono">Best ${Math.round(Math.max(...m.examHistory.map((e) => e.score)) * 100)}%</span>` : ""}
+                </div>
+              </div>
+              <ol class="lessons">
+                ${m.lessons.map(
+        (l, j) => `<li><a href="#/lesson/${id}/${l.id}" class="lesson-row ${l.status}">
+                      <span class="dot" title="${l.status.replace("-", " ")}"></span>
+                      <span class="ln mono">${i + 1}.${j + 1}</span>
+                      <span class="lt">${h(l.title)}</span>
+                      <span class="lm muted small mono">${l.quizHistory?.length ? `quiz ${Math.round(l.quizHistory[l.quizHistory.length - 1].score * 100)}%` : ""}</span>
+                    </a></li>`
+      ).join("")}
+              </ol>
+            </section>`
+    ).join("")}
+      </div>
+      <aside class="course-aside">
+        ${c.prerequisites?.length ? `<div class="panel"><h3>Prerequisites</h3><ul>${c.prerequisites.map((p) => `<li>${h(p)}</li>`).join("")}</ul></div>` : ""}
+        ${c.core_texts?.length ? `<div class="panel"><h3>Core texts</h3><ul class="texts">${c.core_texts.map((p) => `<li>${h(p)}</li>`).join("")}</ul></div>` : ""}
+        <div class="panel quiet"><p class="muted small">${h(VAULT_HINT)}</p><button class="btn ghost small" id="del">Delete course</button></div>
+      </aside>
+    </div>`;
+    document.getElementById("exp").onclick = (e) => withBusy(e.currentTarget, "Packing notes\u2026", async () => toast(await exportCourse(c), "ok"));
+    document.getElementById("del").onclick = async () => {
+      if (!await ask(`Delete "${c.title}", its lessons and its flashcards? This cannot be undone.`, "Delete course", true)) return;
+      for (const m of c.modules) for (const l of m.lessons) await del("lessons", l.id).catch(() => {
+      });
+      for (const card of cards) await del("cards", card.id);
+      await del("courses", id);
+      toast("Course deleted");
+      go("");
+    };
+  }
+  async function lessonPage(cid, lid) {
+    const c = await loadCourse(cid);
+    const pos = findLesson(c, lid);
+    if (!pos) throw new Error("Lesson not found.");
+    const [mi, li] = pos;
+    const l = c.modules[mi].lessons[li];
+    await loadLessonBody(l);
+    const s = await getSettings();
+    const flat = c.modules.flatMap((mm) => mm.lessons);
+    const idx = flat.findIndex((x) => x.id === lid);
+    const prev = flat[idx - 1];
+    const next = flat[idx + 1];
+    let busy = false;
+    view.innerHTML = `
+    <a class="crumb" href="#/course/${cid}">\u2190 ${h(c.title)}</a>
+    <header class="lesson-head">
+      <p class="eyebrow">Module ${mi + 1} \xB7 Lesson ${mi + 1}.${li + 1}</p>
+      <h1>${h(l.title)}</h1>
+    </header>
+    <div class="lesson-layout">
+      <section class="lesson-main">
+        <div id="chat" class="chat" aria-live="polite"></div>
+        <div id="start" class="start-card" hidden>
+          <p>Your tutor opens with an orientation, then teaches in segments and questions you as you go. Answer in your own words. Getting things wrong is part of how this works.</p>
+          <button class="btn primary" id="begin">Begin lesson</button>
+        </div>
+        <div class="composer" id="composer">
+          <div class="chips">${QUICK_ACTIONS.map(([label], i) => `<button class="chip" data-q="${i}">${h(label)}</button>`).join("")}</div>
+          <form id="ask" class="ask">
+            <label class="sr" for="input">Your reply</label>
+            <textarea id="input" rows="2" placeholder="Answer the question, ask anything, or push back\u2026"></textarea>
+            <button class="btn primary" id="send" type="submit">Send</button>
+            <button class="btn ghost" id="stop" type="button" hidden>Stop</button>
+          </form>
+          <p class="muted tiny">Enter to send \xB7 Shift+Enter for a new line</p>
+        </div>
+      </section>
+      <aside class="lesson-aside">
+        <div class="panel">
+          <h3>Objectives</h3>
+          <ul class="objectives">${l.objectives.map((o) => `<li>${h(o)}</li>`).join("")}</ul>
+          <label class="check"><input type="checkbox" id="done" ${l.status === "done" ? "checked" : ""}> Lesson complete</label>
+        </div>
+        <div class="panel tools">
+          <h3>Study tools</h3>
+          <button class="btn block" id="notes-btn">${l.notes ? "Regenerate notes" : "Generate notes"}</button>
+          <a class="btn block" href="#/quiz/${cid}/lesson/${lid}">Quiz me</a>
+          <button class="btn block" id="cards-btn">Make flashcards</button>
+          <button class="btn block" id="export-btn">Export note (.md)</button>
+        </div>
+        <div class="panel" id="notes-panel" ${l.notes ? "" : "hidden"}>
+          <div class="row-between"><h3>Notes</h3><button class="link-btn" id="notes-toggle">Expand</button></div>
+          <div class="prose notes collapsed" id="notes">${md(l.notes)}</div>
+        </div>
+        <nav class="pager">
+          ${prev ? `<a href="#/lesson/${cid}/${prev.id}">\u2190 ${h(trunc(prev.title, 30))}</a>` : "<span></span>"}
+          ${next ? `<a href="#/lesson/${cid}/${next.id}">${h(trunc(next.title, 30))} \u2192</a>` : ""}
+        </nav>
+      </aside>
+    </div>`;
+    const chat2 = document.getElementById("chat");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+    const stopBtn = document.getElementById("stop");
+    const startCard = document.getElementById("start");
+    const composer = document.getElementById("composer");
+    const bubble = (msg) => msg.hidden ? `<div class="sys-note">Lesson started</div>` : `<div class="msg ${msg.role}"><div class="who">${msg.role === "user" ? "You" : "Tutor"}</div><div class="prose">${md(msg.content)}</div></div>`;
+    function renderAll() {
+      const empty = !l.messages.length;
+      startCard.hidden = !empty;
+      composer.hidden = empty;
+      chat2.innerHTML = l.messages.map(bubble).join("");
+    }
+    function scrollDown(force) {
+      const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 220;
+      if (force || nearBottom) window.scrollTo({ top: document.body.scrollHeight, behavior: force ? "smooth" : "auto" });
+    }
+    function errorBubble(message, label, onRetry) {
+      const err = document.createElement("div");
+      err.className = "msg error";
+      err.innerHTML = `<p>${h(message)}</p><button class="btn small">${h(label)}</button>`;
+      err.querySelector("button").onclick = () => {
+        err.remove();
+        onRetry();
+      };
+      chat2.appendChild(err);
+    }
+    async function generate() {
+      busy = true;
+      sendBtn.disabled = true;
+      stopBtn.hidden = false;
+      const el = document.createElement("div");
+      el.className = "msg assistant streaming";
+      el.innerHTML = `<div class="who">Tutor</div><div class="prose"><span class="thinking">Thinking<span class="typing"><i></i><i></i><i></i></span></span></div>`;
+      chat2.appendChild(el);
+      scrollDown(true);
+      const prose = el.querySelector(".prose");
+      let pending = null;
+      let partial = "";
+      const controller = new AbortController();
+      activeController = controller;
+      const finish = () => {
+        busy = false;
+        sendBtn.disabled = false;
+        stopBtn.hidden = true;
+      };
+      try {
+        const full = await chat({
+          instructions: tutorSystem(c, mi, li, s),
+          turns: l.messages.map(({ role, content }) => ({ role, content })),
+          tier: s.tutorTier,
+          signal: controller.signal,
+          onText: (t) => {
+            partial = t;
+            if (pending) return;
+            pending = requestAnimationFrame(() => {
+              pending = null;
+              prose.innerHTML = md(partial);
+              scrollDown(false);
+            });
+          }
+        });
+        l.messages.push({ role: "assistant", content: full });
+        await saveLessonBody(c, l);
+      } catch (e) {
+        cancelAnimationFrame(pending);
+        const kept = partial || e.partial || "";
+        if (e.name === "AbortError") {
+          if (kept) {
+            l.messages.push({ role: "assistant", content: kept + "\n\n*(stopped)*" });
+            await saveLessonBody(c, l);
+          }
+        } else {
+          el.remove();
+          finish();
+          if (document.body.contains(chat2)) errorBubble(e.message, "Try again", generate);
+          return;
+        }
+      } finally {
+        cancelAnimationFrame(pending);
+        if (activeController === controller) activeController = null;
+      }
+      finish();
+      if (document.body.contains(chat2)) {
+        renderAll();
+        scrollDown(false);
+      }
+    }
+    async function send(text, hidden = false) {
+      text = text.trim();
+      if (!text || busy) return;
+      l.messages.push({ role: "user", content: text, ...hidden ? { hidden: true } : {} });
+      if (l.status === "not-started") {
+        l.status = "in-progress";
+        saveCourse(c).catch(() => {
+        });
+      }
+      renderAll();
+      saveLessonBody(c, l).catch((e) => toast(e.message, "err"));
+      generate();
+    }
+    renderAll();
+    if (l.messages.length) setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 0);
+    if (l.messages.length && l.messages[l.messages.length - 1].role === "user") {
+      errorBubble("Your tutor hasn't replied to this yet.", "Get reply", generate);
+    }
+    document.getElementById("begin").onclick = () => send(KICKOFF, true);
+    document.getElementById("ask").onsubmit = (e) => {
+      e.preventDefault();
+      const t = input.value;
+      if (!t.trim() || busy) return;
+      input.value = "";
+      send(t);
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        document.getElementById("ask").requestSubmit();
+      }
+    });
+    stopBtn.onclick = () => activeController && activeController.abort();
+    composer.querySelectorAll(".chip").forEach((b) => b.onclick = () => send(QUICK_ACTIONS[+b.dataset.q][1]));
+    document.getElementById("done").onchange = async (e) => {
+      l.status = e.target.checked ? "done" : l.messages.length ? "in-progress" : "not-started";
+      await saveCourse(c);
+      if (!e.target.checked) return;
+      toast("Lesson marked complete", "ok");
+      if (!l.recap && l.messages.length) {
+        json({
+          instructions: "You summarise tutoring sessions precisely.",
+          prompt: `Summarise what the student learned in this lesson in one sentence of at most 40 words.
+
+${transcript(l).slice(-3e4)}`,
+          schema: RECAP_TOOL.input_schema,
+          tier: "quick",
+          maxTokens: 400
+        }).then(async (r) => {
+          if (r?.recap) {
+            l.recap = String(r.recap);
+            await saveCourse(c);
+          }
+        }).catch(() => {
+        });
+      }
+    };
+    const notesPanel = document.getElementById("notes-panel");
+    const notesEl = document.getElementById("notes");
+    document.getElementById("notes-toggle").onclick = (e) => {
+      notesEl.classList.toggle("collapsed");
+      e.target.textContent = notesEl.classList.contains("collapsed") ? "Expand" : "Collapse";
+    };
+    document.getElementById("notes-btn").onclick = async (e) => {
+      const btn = e.currentTarget;
+      await withBusy(btn, "Writing notes\u2026", async () => {
+        notesPanel.hidden = false;
+        notesEl.classList.remove("collapsed");
+        document.getElementById("notes-toggle").textContent = "Collapse";
+        notesEl.innerHTML = '<p class="muted">Thinking\u2026</p>';
+        const text = await write({
+          instructions: NOTES_SYSTEM,
+          prompt: notesRequest(c, mi, li),
+          tier: s.toolTier,
+          onText: (t) => notesEl.innerHTML = md(t)
+        });
+        l.notes = text;
+        l.hasNotes = true;
+        notesEl.innerHTML = md(text);
+        await saveLessonBody(c, l);
+        await saveCourse(c);
+        toast("Notes saved", "ok");
+      });
+      if (l.notes) btn.textContent = "Regenerate notes";
+    };
+    document.getElementById("cards-btn").onclick = (e) => withBusy(e.currentTarget, "Making flashcards\u2026", async () => {
+      const r = await json({
+        instructions: "You are an expert at writing spaced-repetition flashcards for graduate students.",
+        prompt: flashcardRequest(c, mi, li),
+        schema: FLASHCARD_TOOL.input_schema,
+        tier: s.toolTier
+      });
+      const now = Date.now();
+      const cards = (r.cards || []).filter((x) => x && x.front && x.back).map((x) => ({ id: uid(), courseId: cid, lessonId: lid, front: String(x.front), back: String(x.back), ease: 2.5, interval: 0, reps: 0, due: now, created: now }));
+      await putMany("cards", cards);
+      updateNavBadge();
+      toast(`${cards.length} flashcards added to your review queue`, "ok");
+    });
+    document.getElementById("export-btn").onclick = (e) => withBusy(e.currentTarget, "Exporting\u2026", async () => toast(await exportLesson(c, mi, li, l), "ok"));
+  }
+  async function quizPage(cid, kind2, targetId) {
+    const c = await loadCourse(cid);
+    let mi, li, title, back;
+    if (kind2 === "module") {
+      mi = c.modules.findIndex((m) => m.id === targetId);
+      if (mi < 0) throw new Error("Module not found.");
+      title = `Module ${mi + 1} exam: ${c.modules[mi].title}`;
+      back = `#/course/${cid}`;
+    } else {
+      const pos = findLesson(c, targetId);
+      if (!pos) throw new Error("Lesson not found.");
+      [mi, li] = pos;
+      await loadLessonBody(c.modules[mi].lessons[li]);
+      title = `Quiz: ${c.modules[mi].lessons[li].title}`;
+      back = `#/lesson/${cid}/${targetId}`;
+    }
+    view.innerHTML = `
+    <a class="crumb" href="${back}">\u2190 Back</a>
+    <header class="page-head"><div><p class="eyebrow">${h(c.title)}</p><h1>${h(title)}</h1></div></header>
+    <div id="quiz"><div class="loading-card"><span class="spin"></span>Your examiner is writing the questions. This can take a minute.</div></div>`;
+    const box = document.getElementById("quiz");
+    const controller = new AbortController();
+    activeController = controller;
+    let quiz;
+    try {
+      quiz = await json({
+        instructions: QUIZ_SYSTEM,
+        prompt: kind2 === "module" ? moduleExamRequest(c, mi) : lessonQuizRequest(c, mi, li),
+        schema: QUIZ_TOOL.input_schema,
+        signal: controller.signal
+      });
+    } catch (e) {
+      if (e.name === "AbortError") return;
+      box.innerHTML = `<div class="msg error"><p>${h(e.message)}</p><button class="btn small" id="retry">Try again</button></div>`;
+      document.getElementById("retry").onclick = () => route();
+      return;
+    }
+    const qs = (quiz.questions || []).filter(
+      (q) => q && q.prompt && (q.type === "written" || Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer_index) && q.answer_index < q.options.length)
+    );
+    if (!qs.length) {
+      box.innerHTML = `<div class="msg error"><p>The quiz came back empty.</p><button class="btn small" id="retry">Try again</button></div>`;
+      document.getElementById("retry").onclick = () => route();
+      return;
+    }
+    qs.forEach((q, i) => q.id = i + 1);
+    box.innerHTML = `<form id="qf" class="quiz">
+    ${qs.map(
+      (q) => `<fieldset class="q panel" data-id="${q.id}">
+          <legend><span class="qn mono">${q.id}</span>${q.type === "mcq" ? "Multiple choice" : "Written answer"}</legend>
+          <div class="prose">${md(q.prompt)}</div>
+          ${q.type === "mcq" ? `<div class="opts">${q.options.map((o, k) => `<label class="opt"><input type="radio" id="q${q.id}o${k}" name="q${q.id}" value="${k}"><span class="prose">${md(o)}</span></label>`).join("")}</div>` : `<textarea id="q${q.id}w" name="q${q.id}" rows="5" placeholder="Write your answer. LaTeX like $x^2$ is fine."></textarea>`}
+          <div class="result" hidden></div>
+        </fieldset>`
+    ).join("")}
+    <div class="actions"><button class="btn primary" type="submit">Submit for grading</button></div>
+  </form>`;
+    document.getElementById("qf").onsubmit = (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const btn = form.querySelector("button[type=submit]");
+      withBusy(btn, "Grading\u2026", async () => {
+        var _a, _b;
+        const fd = new FormData(form);
+        const scores = {};
+        const written = [];
+        for (const q of qs) {
+          const v = fd.get(`q${q.id}`);
+          if (q.type === "mcq") scores[q.id] = { score: v != null && Number(v) === q.answer_index ? 1 : 0, chosen: v == null ? null : Number(v) };
+          else written.push({ id: q.id, prompt: q.prompt, model_answer: q.model_answer, answer: (v || "").trim() });
+        }
+        written.filter((w) => !w.answer).forEach((w) => scores[w.id] = { score: 0, feedback: "No answer given." });
+        const needGrading = written.filter((w) => w.answer);
+        if (needGrading.length) {
+          const g = await json({ instructions: GRADE_SYSTEM, prompt: gradeRequest(needGrading), schema: GRADE_TOOL.input_schema });
+          for (const r of g.grades || []) scores[r.id] = { score: Math.max(0, Math.min(1, Number(r.score) || 0)), feedback: String(r.feedback || "") };
+        }
+        let total = 0;
+        for (const q of qs) {
+          const sc = scores[q.id] || { score: 0 };
+          total += sc.score;
+          const fs = form.querySelector(`[data-id="${q.id}"]`);
+          fs.classList.add(sc.score >= 0.75 ? "right" : sc.score > 0 ? "partial" : "wrong");
+          fs.querySelectorAll("input,textarea").forEach((x) => x.disabled = true);
+          if (q.type === "mcq") {
+            fs.querySelectorAll(".opt").forEach((o, k) => {
+              if (k === q.answer_index) o.classList.add("correct");
+              else if (k === sc.chosen) o.classList.add("chosen-wrong");
+            });
+          }
+          const res = fs.querySelector(".result");
+          res.hidden = false;
+          res.innerHTML = `
+          <p class="verdict">${q.type === "mcq" ? sc.score ? "Correct" : "Incorrect" : `Score: ${Math.round(sc.score * 100)}%`}</p>
+          ${sc.feedback ? `<div class="prose">${md(sc.feedback)}</div>` : ""}
+          ${q.type === "written" ? `<details><summary>Model answer</summary><div class="prose">${md(q.model_answer || "")}</div></details>` : ""}
+          <div class="prose explain">${md(q.explanation || "")}</div>`;
+        }
+        const score = total / qs.length;
+        const entry = { date: today2(), score };
+        if (kind2 === "module") ((_a = c.modules[mi]).examHistory || (_a.examHistory = [])).push(entry);
+        else ((_b = c.modules[mi].lessons[li]).quizHistory || (_b.quizHistory = [])).push(entry);
+        await saveCourse(c);
+        const missed = qs.filter((q) => (scores[q.id]?.score ?? 0) < 0.75);
+        btn.closest(".actions").innerHTML = "";
+        const sum = document.createElement("div");
+        sum.className = "panel score-card";
+        sum.innerHTML = `<p class="eyebrow">Result</p><p class="big-score mono">${Math.round(score * 100)}%</p>
+        <p class="muted">${score >= 0.85 ? "Excellent command of the material." : score >= 0.65 ? "Solid, with gaps worth revisiting." : "Worth another pass before moving on. Ask your tutor about the questions you missed."}</p>
+        <div class="actions">
+          ${missed.length ? `<button class="btn primary" id="miss">Turn ${missed.length} missed question${missed.length > 1 ? "s" : ""} into flashcards</button>` : ""}
+          <a class="btn" href="${back}">Done</a>
+        </div>`;
+        box.prepend(sum);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        const mb = document.getElementById("miss");
+        if (mb)
+          mb.onclick = async () => {
+            const now = Date.now();
+            const lessonId = kind2 === "module" ? null : targetId;
+            await putMany("cards", missed.map((q) => ({
+              id: uid(),
+              courseId: cid,
+              lessonId,
+              front: q.prompt + (q.type === "mcq" ? "\n\n" + q.options.map((o, k) => `${"ABCDEF"[k]}. ${o}`).join("\n") : ""),
+              back: (q.type === "mcq" ? `**${"ABCDEF"[q.answer_index]}. ${q.options[q.answer_index]}**
+
+` : `${q.model_answer || ""}
+
+`) + (q.explanation || ""),
+              ease: 2.5,
+              interval: 0,
+              reps: 0,
+              due: now,
+              created: now
+            })));
+            mb.disabled = true;
+            mb.textContent = "Added to your review queue";
+            updateNavBadge();
+          };
+      });
+    };
+  }
+  function schedule(card, grade) {
+    let { ease = 2.5, interval = 0, reps = 0 } = card;
+    const q = { 1: 1, 2: 3, 3: 4, 4: 5 }[grade];
+    let due;
+    if (q < 3) {
+      reps = 0;
+      interval = 0;
+      due = Date.now() + 10 * 60 * 1e3;
+    } else {
+      reps += 1;
+      if (reps === 1) interval = q === 5 ? 3 : 1;
+      else if (reps === 2) interval = q === 3 ? 3 : 6;
+      else interval = Math.max(interval + 1, Math.round(interval * ease * (q === 3 ? 0.8 : q === 5 ? 1.3 : 1)));
+      due = Date.now() + interval * 864e5;
+    }
+    ease = Math.max(1.3, ease + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)));
+    return { ...card, ease, interval, reps, due, lastReviewed: Date.now() };
+  }
+  async function reviewPage(courseId) {
+    const [cards, courses] = await Promise.all([all("cards"), all("courses")]);
+    const titles = Object.fromEntries(courses.map((c) => [c.id, c.title]));
+    const queue = cards.filter((c) => c.due <= Date.now() && (!courseId || c.courseId === courseId)).sort((a, b) => a.due - b.due);
+    let reviewed = 0;
+    let grading = false;
+    const header = `<header class="page-head"><div><p class="eyebrow">Spaced repetition</p><h1>Review${courseId && titles[courseId] ? `: ${h(titles[courseId])}` : ""}</h1></div>
+    ${courseId ? `<a class="btn ghost" href="#/review">All courses</a>` : ""}</header>`;
+    function show() {
+      if (!queue.length) {
+        const upcoming = cards.filter((c) => c.due > Date.now() && (!courseId || c.courseId === courseId)).sort((a, b) => a.due - b.due)[0];
+        view.innerHTML = `${header}<div class="empty"><h2>${reviewed ? `Done: ${reviewed} card${reviewed > 1 ? "s" : ""} reviewed` : "Nothing due right now"}</h2>
+        <p class="muted">${upcoming ? `Next card is due ${new Date(upcoming.due).toLocaleString()}.` : "Make flashcards from any lesson to start building long-term memory."}</p>
+        <a class="btn" href="#/">Back to courses</a></div>`;
+        updateNavBadge();
+        return;
+      }
+      const card = queue[0];
+      view.innerHTML = `${header}
+      <p class="muted small center mono">${queue.length} due \xB7 ${h(titles[card.courseId] || "")}</p>
+      <div class="flashcard panel" id="fc">
+        <div class="prose front">${md(card.front)}</div>
+        <div class="prose back" hidden>${md(card.back)}</div>
+      </div>
+      <div class="review-actions" id="ra">
+        <button class="btn primary wide" id="reveal">Show answer <kbd>Space</kbd></button>
+      </div>`;
+      document.getElementById("reveal").onclick = reveal;
+    }
+    function reveal() {
+      const back = document.querySelector("#fc .back");
+      if (!back || !back.hidden) return;
+      back.hidden = false;
+      document.getElementById("ra").innerHTML = [[1, "Again"], [2, "Hard"], [3, "Good"], [4, "Easy"]].map(([g, label]) => {
+        const next = schedule(queue[0], g);
+        const d = Math.round((next.due - Date.now()) / 864e5);
+        const when = g === 1 ? "10 min" : d <= 1 ? "1 day" : `${d} days`;
+        return `<button class="btn grade g${g}" data-g="${g}">${label}<small>${when}</small></button>`;
+      }).join("");
+      document.querySelectorAll(".grade").forEach((b) => b.onclick = () => grade(+b.dataset.g));
+    }
+    async function grade(g) {
+      const back = document.querySelector("#fc .back");
+      if (grading || !queue.length || !back || back.hidden) return;
+      grading = true;
+      const card = queue.shift();
+      const updated = schedule(card, g);
+      try {
+        await put("cards", updated);
+      } catch (e) {
+        toast(e.message, "err");
+      }
+      reviewed++;
+      if (g === 1) queue.push(updated);
+      grading = false;
+      show();
+    }
+    const onKey = (e) => {
+      if (!currentPath.startsWith("review")) return document.removeEventListener("keydown", onKey);
+      if (e.target.matches("input,textarea")) return;
+      if (e.code === "Space") {
+        e.preventDefault();
+        reveal();
+      }
+      if (["1", "2", "3", "4"].includes(e.key) && document.querySelector(".grade")) grade(+e.key);
+    };
+    document.addEventListener("keydown", onKey);
+    show();
+  }
+  async function settingsPage() {
+    const [s, mode2, where] = await Promise.all([getSettings(), mode(), kind()]);
+    const tierOpt = (sel, opts) => opts.map(([v, label]) => `<option value="${v}" ${v === sel ? "selected" : ""}>${h(label)}</option>`).join("");
+    view.innerHTML = `
+    <header class="page-head"><div><p class="eyebrow">Setup</p><h1>Settings</h1></div></header>
+    <form id="sf" class="settings">
+      <section class="panel form">
+        <h2>About you as a learner</h2>
+        <p class="muted">Every course and lesson is tailored to this. Mention your education, what you already know well, and how you like to be taught.</p>
+        <label class="sr" for="profile">Learner profile</label>
+        <textarea id="profile" name="profile" rows="6" placeholder="e.g. Self-taught generalist, comfortable with algebra, rusty on calculus. I learn best from concrete examples before formalism, and I like the history of ideas.">${h(s.profile)}</textarea>
+      </section>
+
+      <section class="panel form">
+        <h2>Teaching depth</h2>
+        <p class="muted">${mode2 === "plan" ? "Lyceum runs on your Claude plan. Lessons count toward your plan's usage limits, not a separate bill." : "Lyceum is running outside Claude, so it uses the Anthropic API key below."}</p>
+        <label for="tutorTier">Tutor and syllabus</label>
+        <select id="tutorTier" name="tutorTier">${tierOpt(s.tutorTier, [["complex", "Deepest reasoning (uses more of your plan)"], ["default", "Balanced (lighter on usage)"]])}</select>
+        <label for="toolTier">Notes, quizzes, flashcards and grading</label>
+        <select id="toolTier" name="toolTier">${tierOpt(s.toolTier, [["default", "Balanced"], ["complex", "Deepest reasoning"], ["quick", "Fastest"]])}</select>
+      </section>
+
+      ${mode2 === "api" ? `<section class="panel form">
+              <h2>Anthropic API key</h2>
+              <p class="muted">Only needed when Lyceum runs outside Claude. Stored in this browser only.</p>
+              <div class="keyrow"><label class="sr" for="apiKey">API key</label><input type="password" id="apiKey" name="apiKey" value="${h(s.apiKey)}" placeholder="sk-ant-\u2026" autocomplete="off" spellcheck="false"></div>
+            </section>` : ""}
+
+      <div class="actions sticky"><button class="btn primary" type="submit">Save settings</button></div>
+
+      <section class="panel form">
+        <h2>Your data</h2>
+        <p class="muted">${where === "account" ? "Courses, lessons and flashcards are saved privately to your Claude account, so they follow you to any device." : "Courses, lessons and flashcards are saved in this browser only."} Download a backup any time.</p>
+        <div class="row"><button type="button" class="btn" id="backup">Download backup</button>
+        <label class="btn file" for="restore">Restore from backup</label><input type="file" id="restore" accept="application/json,.json" hidden></div>
+      </section>
+
+      <section class="panel form">
+        <h2>Obsidian</h2>
+        <p class="muted">Each lesson exports as a Markdown note with your notes, flashcards (in the Spaced Repetition plugin's <code>question::answer</code> format), quiz history and the full dialogue. A whole course exports as a .zip. ${h(VAULT_HINT)}</p>
+      </section>
+    </form>`;
+    const form = document.getElementById("sf");
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const f = Object.fromEntries(new FormData(form));
+      try {
+        await saveSettings({ ...s, profile: f.profile.trim(), tutorTier: f.tutorTier, toolTier: f.toolTier, ...f.apiKey !== void 0 ? { apiKey: f.apiKey.trim() } : {} });
+        toast("Settings saved", "ok");
+      } catch (err) {
+        toast(err.message, "err");
+      }
+    };
+    document.getElementById("backup").onclick = (e) => withBusy(e.currentTarget, "Preparing\u2026", async () => {
+      const data = { app: "lyceum", version: 2, exported: (/* @__PURE__ */ new Date()).toISOString(), courses: await all("courses"), lessons: [], cards: await all("cards") };
+      for (const c of data.courses) for (const m of c.modules) for (const l of m.lessons) {
+        const b = await get("lessons", l.id);
+        if (b) data.lessons.push(b);
+      }
+      toast(await saveFile(`lyceum-backup-${today2()}.json`, JSON.stringify(data)), "ok");
+    });
+    document.getElementById("restore").onchange = async (e) => {
+      const file = e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      try {
+        const data = JSON.parse(await file.text());
+        if (data.app !== "lyceum") throw new Error("That file is not a Lyceum backup.");
+        if (!await ask(`Restore ${data.courses.length} courses and ${data.cards.length} flashcards? Items with the same ID are overwritten.`, "Restore")) return;
+        await putMany("courses", data.courses);
+        await putMany("lessons", data.lessons || []);
+        await putMany("cards", data.cards);
+        toast("Backup restored", "ok");
+      } catch (err) {
+        toast(err.message, "err");
+      }
+    };
+  }
+  route();
+})();
+</script>

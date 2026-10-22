@@ -31,7 +31,8 @@ export function md(src) {
     const m = math[+i];
     if (!window.katex) return `<code>${h(m.tex)}</code>`;
     try {
-      return window.katex.renderToString(m.tex, { displayMode: m.display, throwOnError: false });
+      // MathML output renders with the browser's own maths fonts, so no KaTeX stylesheet or font files are needed.
+      return window.katex.renderToString(m.tex, { displayMode: m.display, throwOnError: false, output: 'mathml' });
     } catch {
       return `<code>${h(m.tex)}</code>`;
     }
