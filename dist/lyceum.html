@@ -283,6 +283,17 @@ input:focus, textarea:focus, select:focus { outline: 2px solid color-mix(in srgb
 .g1 { border-color: color-mix(in srgb, var(--bad) 45%, var(--rule)); }
 .g3 { border-color: color-mix(in srgb, var(--ok) 45%, var(--rule)); }
 
+/* a moment in history */
+.hm-card { position: relative; max-width: 620px; max-height: calc(100vh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow: auto; padding: 26px 28px 20px; border-top: 3px solid var(--brass); }
+.hm-card h2 { font-size: clamp(24px, 3.4vw, 30px); margin-bottom: 12px; padding-right: 28px; }
+.hm-x { position: absolute; top: 10px; right: 10px; }
+.hm-hook { font: italic 19px/1.5 var(--read); color: var(--ink); margin: 0 0 14px; }
+.hm-lesson { font: 16.5px/1.65 var(--read); color: var(--ink-2); }
+.hm-why { margin: 14px 0 8px; font-size: 14.5px; }
+.hm-card .loading-card { padding: 28px 0; }
+.hm-pref { margin-top: 14px; font-weight: 400; color: var(--ink-3); }
+.hm-actions { margin-top: 14px; }
+
 /* modal + toasts */
 .modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--ink) 35%, transparent); }
 .modal-card { background: var(--leaf); border: 1px solid var(--rule); border-radius: 12px; padding: 22px; max-width: 440px; width: 100%; box-shadow: var(--shadow); }
@@ -1141,6 +1152,232 @@ Exam results: ${exams}` : ""}`;
   }
   var VAULT_HINT = `Unzip into your vault's "${VAULT_FOLDER}" folder.`;
 
+  // js/history.js
+  var REGIONS = [
+    "Ancient Mesopotamia",
+    "Pharaonic Egypt",
+    "Classical Greece",
+    "the Roman Republic",
+    "the Roman Empire",
+    "Han China",
+    "Tang or Song China",
+    "Mauryan or Gupta India",
+    "the Mughal Empire",
+    "the Persian empires",
+    "the Byzantine Empire",
+    "the early Islamic caliphates",
+    "medieval Europe",
+    "the Mongol Empire",
+    "West African empires (Ghana, Mali, Songhai)",
+    "the Swahili coast",
+    "Mesoamerica (Maya, Aztec)",
+    "the Inca world",
+    "Edo Japan",
+    "Joseon Korea",
+    "the Ottoman Empire",
+    "Renaissance Italy",
+    "the Reformation",
+    "the Age of Exploration",
+    "the Scientific Revolution",
+    "the Enlightenment",
+    "the Atlantic revolutions",
+    "the Industrial Revolution",
+    "the American West",
+    "the US Civil War era",
+    "Imperial Russia",
+    "Qing China",
+    "the scramble for Africa",
+    "the First World War",
+    "the interwar years",
+    "the Second World War",
+    "decolonisation",
+    "the Cold War",
+    "the space race",
+    "the history of medicine",
+    "the history of mathematics",
+    "the history of technology",
+    "economic history",
+    "maritime history",
+    "the history of ideas",
+    "Polynesian voyaging",
+    "ancient Australia and Aboriginal history",
+    "Scandinavia and the Vikings"
+  ];
+  var ANGLES = [
+    "a surprising, little-known fact",
+    "a turning point most people misunderstand",
+    "an overlooked person who changed events",
+    "how ordinary people lived",
+    "a decision whose consequences lasted centuries",
+    "a historical myth and what actually happened",
+    "an invention or idea and where it really came from",
+    "a battle, treaty or crisis explained simply"
+  ];
+  var SCHEMA = {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "A short, specific headline (max ~10 words)." },
+      place_and_date: { type: "string", description: 'Where and when, e.g. "Rome, 49 BC" or "Mali, c. 1324".' },
+      hook: { type: "string", description: "One or two sentences: the striking fact itself." },
+      lesson: { type: "string", description: "A quick lesson of 120\u2013180 words in Markdown: context, what happened, and why. Short paragraphs." },
+      why_it_matters: { type: "string", description: "One sentence on why it still matters." },
+      flashcard_question: { type: "string", description: "A question that tests the key point." },
+      flashcard_answer: { type: "string", description: "A concise answer." },
+      course_subject: { type: "string", description: 'A subject for a full course that would go deeper, e.g. "The Fall of the Roman Republic".' },
+      further_reading: { type: "string", description: 'One well-known, real book or scholar on this topic ("Author, Title"), or an empty string if unsure.' }
+    },
+    required: ["title", "place_and_date", "hook", "lesson", "why_it_matters", "flashcard_question", "flashcard_answer", "course_subject", "further_reading"]
+  };
+  var pick2 = (a) => a[Math.floor(Math.random() * a.length)];
+  async function loadState() {
+    return await kvGet("history").catch(() => null) || { recent: [], next: null, seen: 0 };
+  }
+  async function saveState(st) {
+    await kvSet("history", st).catch(() => {
+    });
+  }
+  async function generate(recent, signal) {
+    const s = await getSettings();
+    const region = pick2(REGIONS);
+    const angle = pick2(ANGLES);
+    const prompt = `Write one "moment in history" for a curious adult learner who studies at graduate level.
+Topic area: ${region}. Angle: ${angle}.
+Pick a specific, well-documented event, person, practice or idea. Accuracy matters more than drama: use only facts that are well established in mainstream scholarship, give dates as historians do (use "c." when uncertain), and say so where historians disagree. No invented quotations, statistics or anecdotes.
+${s.profile ? `About the learner: ${s.profile.slice(0, 600)}
+` : ""}Do not repeat any of these recent topics: ${recent.slice(-30).join("; ") || "none yet"}.`;
+    const out = await json({ instructions: "You are a historian who writes vivid, rigorously accurate short lessons.", prompt, schema: SCHEMA, tier: "default", signal, maxTokens: 2e3 });
+    if (!out?.title || !out?.lesson) throw new Error("The history lesson came back incomplete. Try another.");
+    return out;
+  }
+  function card(m) {
+    return `
+    <p class="eyebrow">A moment in history \xB7 ${h(m.place_and_date)}</p>
+    <h2 id="hm-title">${h(m.title)}</h2>
+    <p class="hm-hook">${h(m.hook)}</p>
+    <div class="prose hm-lesson">${md(m.lesson)}</div>
+    <p class="hm-why"><strong>Why it matters.</strong> ${h(m.why_it_matters)}</p>
+    ${m.further_reading ? `<p class="muted small">Further reading: <em>${h(m.further_reading)}</em></p>` : ""}`;
+  }
+  async function showHistoryMoment({ go: go2, onCardAdded, toast: toast2 }) {
+    const s = await getSettings();
+    if (s.historyPopup === false) return;
+    const st = await loadState();
+    const wrap = document.createElement("div");
+    wrap.className = "modal hm";
+    wrap.innerHTML = `<div class="modal-card hm-card" role="dialog" aria-modal="true" aria-labelledby="hm-title">
+      <button class="hm-x btn ghost small" aria-label="Close">\u2715</button>
+      <div id="hm-body"><p class="eyebrow">A moment in history</p><div class="loading-card"><span class="spin"></span>Finding something worth knowing\u2026</div></div>
+      <div class="actions hm-actions" hidden>
+        <button class="btn primary" id="hm-close">Start studying</button>
+        <button class="btn" id="hm-card">Add to flashcards</button>
+        <button class="btn" id="hm-course">Make it a course</button>
+        <button class="btn ghost" id="hm-another">Another one</button>
+      </div>
+      <label class="check small hm-pref"><input type="checkbox" id="hm-off"> Don't show this when I open Lyceum</label>
+    </div>`;
+    document.body.appendChild(wrap);
+    const body = wrap.querySelector("#hm-body");
+    const actions = wrap.querySelector(".hm-actions");
+    let current = null;
+    let controller = null;
+    const close = () => {
+      controller?.abort();
+      wrap.remove();
+      document.removeEventListener("keydown", onKey);
+    };
+    const onKey = (e) => e.key === "Escape" && close();
+    document.addEventListener("keydown", onKey);
+    wrap.querySelector(".hm-x").onclick = close;
+    wrap.querySelector("#hm-close").onclick = close;
+    wrap.onclick = (e) => e.target === wrap && close();
+    wrap.querySelector("#hm-off").onchange = async (e) => {
+      const cur = await getSettings();
+      await saveSettings({ ...cur, historyPopup: !e.target.checked }).catch(() => {
+      });
+      toast2(e.target.checked ? "History pop-up turned off. Turn it back on in Settings." : "History pop-up turned on");
+    };
+    function show(m) {
+      current = m;
+      body.innerHTML = card(m);
+      actions.hidden = false;
+      const btn = wrap.querySelector("#hm-card");
+      btn.disabled = false;
+      btn.textContent = "Add to flashcards";
+    }
+    function fail(msg) {
+      body.innerHTML = `<p class="eyebrow">A moment in history</p><p class="muted">${h(msg)}</p>`;
+      actions.hidden = false;
+    }
+    async function fresh() {
+      controller?.abort();
+      controller = new AbortController();
+      actions.hidden = true;
+      body.innerHTML = `<p class="eyebrow">A moment in history</p><div class="loading-card"><span class="spin"></span>Finding something worth knowing\u2026</div>`;
+      try {
+        const m = await generate(st.recent, controller.signal);
+        if (!wrap.isConnected) return;
+        show(m);
+        remember(m);
+      } catch (e) {
+        if (e.name !== "AbortError" && wrap.isConnected) fail(e.message);
+      }
+    }
+    function remember(m) {
+      st.recent = [...st.recent, m.title].slice(-40);
+      st.seen = (st.seen || 0) + 1;
+      saveState(st);
+    }
+    async function prepareNext() {
+      try {
+        st.next = await generate(st.recent);
+        await saveState(st);
+      } catch {
+      }
+    }
+    wrap.querySelector("#hm-another").onclick = () => fresh();
+    wrap.querySelector("#hm-course").onclick = () => {
+      if (current) {
+        close();
+        go2(`new/${encodeURIComponent(current.course_subject)}`);
+      }
+    };
+    wrap.querySelector("#hm-card").onclick = async (e) => {
+      if (!current) return;
+      const now = Date.now();
+      try {
+        await put("cards", {
+          id: Math.random().toString(36).slice(2, 9) + now.toString(36).slice(-5),
+          courseId: "history-moments",
+          lessonId: null,
+          front: current.flashcard_question,
+          back: `${current.flashcard_answer}
+
+*${current.title} \xB7 ${current.place_and_date}*`,
+          ease: 2.5,
+          interval: 0,
+          reps: 0,
+          due: now,
+          created: now
+        });
+        e.target.disabled = true;
+        e.target.textContent = "Added";
+        onCardAdded?.();
+      } catch (err) {
+        toast2(err.message, "err");
+      }
+    };
+    if (st.next) {
+      const m = st.next;
+      st.next = null;
+      show(m);
+      remember(m);
+      prepareNext();
+    } else {
+      await fresh();
+      if (wrap.isConnected) prepareNext();
+    }
+  }
+
   // js/app.js
   var view = document.getElementById("view");
   var uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-5);
@@ -1430,7 +1667,7 @@ Exam results: ${exams}` : ""}`;
       if (!await ask(`Delete "${c.title}", its lessons and its flashcards? This cannot be undone.`, "Delete course", true)) return;
       for (const m of c.modules) for (const l of m.lessons) await del("lessons", l.id).catch(() => {
       });
-      for (const card of cards) await del("cards", card.id);
+      for (const card2 of cards) await del("cards", card2.id);
       await del("courses", id);
       toast("Course deleted");
       go("");
@@ -1523,7 +1760,7 @@ Exam results: ${exams}` : ""}`;
       };
       chat2.appendChild(err);
     }
-    async function generate() {
+    async function generate2() {
       busy = true;
       sendBtn.disabled = true;
       stopBtn.hidden = false;
@@ -1571,7 +1808,7 @@ Exam results: ${exams}` : ""}`;
         } else {
           el.remove();
           finish();
-          if (document.body.contains(chat2)) errorBubble(e.message, "Try again", generate);
+          if (document.body.contains(chat2)) errorBubble(e.message, "Try again", generate2);
           return;
         }
       } finally {
@@ -1595,12 +1832,12 @@ Exam results: ${exams}` : ""}`;
       }
       renderAll();
       saveLessonBody(c, l).catch((e) => toast(e.message, "err"));
-      generate();
+      generate2();
     }
     renderAll();
     if (l.messages.length) setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 0);
     if (l.messages.length && l.messages[l.messages.length - 1].role === "user") {
-      errorBubble("Your tutor hasn't replied to this yet.", "Get reply", generate);
+      errorBubble("Your tutor hasn't replied to this yet.", "Get reply", generate2);
     }
     document.getElementById("begin").onclick = () => send(KICKOFF, true);
     document.getElementById("ask").onsubmit = (e) => {
@@ -1827,8 +2064,8 @@ ${transcript(l).slice(-3e4)}`,
       });
     };
   }
-  function schedule(card, grade) {
-    let { ease = 2.5, interval = 0, reps = 0 } = card;
+  function schedule(card2, grade) {
+    let { ease = 2.5, interval = 0, reps = 0 } = card2;
     const q = { 1: 1, 2: 3, 3: 4, 4: 5 }[grade];
     let due;
     if (q < 3) {
@@ -1843,11 +2080,11 @@ ${transcript(l).slice(-3e4)}`,
       due = Date.now() + interval * 864e5;
     }
     ease = Math.max(1.3, ease + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)));
-    return { ...card, ease, interval, reps, due, lastReviewed: Date.now() };
+    return { ...card2, ease, interval, reps, due, lastReviewed: Date.now() };
   }
   async function reviewPage(courseId) {
     const [cards, courses] = await Promise.all([all("cards"), all("courses")]);
-    const titles = Object.fromEntries(courses.map((c) => [c.id, c.title]));
+    const titles = { "history-moments": "A moment in history", ...Object.fromEntries(courses.map((c) => [c.id, c.title])) };
     const queue = cards.filter((c) => c.due <= Date.now() && (!courseId || c.courseId === courseId)).sort((a, b) => a.due - b.due);
     let reviewed = 0;
     let grading = false;
@@ -1862,12 +2099,12 @@ ${transcript(l).slice(-3e4)}`,
         updateNavBadge();
         return;
       }
-      const card = queue[0];
+      const card2 = queue[0];
       view.innerHTML = `${header}
-      <p class="muted small center mono">${queue.length} due \xB7 ${h(titles[card.courseId] || "")}</p>
+      <p class="muted small center mono">${queue.length} due \xB7 ${h(titles[card2.courseId] || "")}</p>
       <div class="flashcard panel" id="fc">
-        <div class="prose front">${md(card.front)}</div>
-        <div class="prose back" hidden>${md(card.back)}</div>
+        <div class="prose front">${md(card2.front)}</div>
+        <div class="prose back" hidden>${md(card2.back)}</div>
       </div>
       <div class="review-actions" id="ra">
         <button class="btn primary wide" id="reveal">Show answer <kbd>Space</kbd></button>
@@ -1890,8 +2127,8 @@ ${transcript(l).slice(-3e4)}`,
       const back = document.querySelector("#fc .back");
       if (grading || !queue.length || !back || back.hidden) return;
       grading = true;
-      const card = queue.shift();
-      const updated = schedule(card, g);
+      const card2 = queue.shift();
+      const updated = schedule(card2, g);
       try {
         await put("cards", updated);
       } catch (e) {
@@ -1936,6 +2173,12 @@ ${transcript(l).slice(-3e4)}`,
         <select id="toolTier" name="toolTier">${tierOpt(s.toolTier, [["default", "Balanced"], ["complex", "Deepest reasoning"], ["quick", "Fastest"]])}</select>
       </section>
 
+      <section class="panel form">
+        <h2>A moment in history</h2>
+        <label class="check"><input type="checkbox" id="historyPopup" name="historyPopup" ${s.historyPopup === false ? "" : "checked"}> Show a short history lesson each time I open Lyceum</label>
+        <p class="muted small">Each one is written fresh by Claude and uses a little of your plan.</p>
+      </section>
+
       ${mode2 === "api" ? `<section class="panel form">
               <h2>Anthropic API key</h2>
               <p class="muted">Only needed when Lyceum runs outside Claude. Stored in this browser only.</p>
@@ -1961,7 +2204,7 @@ ${transcript(l).slice(-3e4)}`,
       e.preventDefault();
       const f = Object.fromEntries(new FormData(form));
       try {
-        await saveSettings({ ...s, profile: f.profile.trim(), tutorTier: f.tutorTier, toolTier: f.toolTier, ...f.apiKey !== void 0 ? { apiKey: f.apiKey.trim() } : {} });
+        await saveSettings({ ...s, profile: f.profile.trim(), tutorTier: f.tutorTier, toolTier: f.toolTier, historyPopup: f.historyPopup === "on", ...f.apiKey !== void 0 ? { apiKey: f.apiKey.trim() } : {} });
         toast("Settings saved", "ok");
       } catch (err) {
         toast(err.message, "err");
@@ -1993,5 +2236,7 @@ ${transcript(l).slice(-3e4)}`,
     };
   }
   route();
+  showHistoryMoment({ go, onCardAdded: updateNavBadge, toast }).catch(() => {
+  });
 })();
 </script>

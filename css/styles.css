@@ -272,6 +272,17 @@ input:focus, textarea:focus, select:focus { outline: 2px solid color-mix(in srgb
 .g1 { border-color: color-mix(in srgb, var(--bad) 45%, var(--rule)); }
 .g3 { border-color: color-mix(in srgb, var(--ok) 45%, var(--rule)); }
 
+/* a moment in history */
+.hm-card { position: relative; max-width: 620px; max-height: calc(100vh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow: auto; padding: 26px 28px 20px; border-top: 3px solid var(--brass); }
+.hm-card h2 { font-size: clamp(24px, 3.4vw, 30px); margin-bottom: 12px; padding-right: 28px; }
+.hm-x { position: absolute; top: 10px; right: 10px; }
+.hm-hook { font: italic 19px/1.5 var(--read); color: var(--ink); margin: 0 0 14px; }
+.hm-lesson { font: 16.5px/1.65 var(--read); color: var(--ink-2); }
+.hm-why { margin: 14px 0 8px; font-size: 14.5px; }
+.hm-card .loading-card { padding: 28px 0; }
+.hm-pref { margin-top: 14px; font-weight: 400; color: var(--ink-3); }
+.hm-actions { margin-top: 14px; }
+
 /* modal + toasts */
 .modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--ink) 35%, transparent); }
 .modal-card { background: var(--leaf); border: 1px solid var(--rule); border-radius: 12px; padding: 22px; max-width: 440px; width: 100%; box-shadow: var(--shadow); }

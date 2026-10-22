@@ -10,6 +10,7 @@ Tell it what you want to master. It designs a full graduate course (modules, les
 - **Socratic lessons:** rigorous teaching with LaTeX maths, worked examples and probing questions. Quick buttons for *Go deeper*, *Worked example*, *Challenge me*, *I'm lost* and *Big picture*.
 - **Testing and recall:** lesson quizzes and module exams with multiple-choice and written answers. Claude grades the written answers and explains them.
 - **Spaced repetition:** flashcards generated from each lesson, plus your missed quiz questions, scheduled with an SM-2 algorithm.
+- **A moment in history:** each time you open Lyceum, a short, freshly written history lesson pops up. Save it as a flashcard or turn it into a full course. Turn it off in Settings.
 - **Obsidian export:** each lesson becomes a Markdown note with objectives, study notes, flashcards (in Spaced Repetition plugin format), quiz history and the full transcript. Each course also gets an index note.
 
 ## Using it

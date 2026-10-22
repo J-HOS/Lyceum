@@ -3,6 +3,7 @@ import * as ai from './ai.js';
 import * as P from './prompts.js';
 import { md, h } from './render.js';
 import * as obs from './obsidian.js';
+import { showHistoryMoment } from './history.js';
 
 const view = document.getElementById('view');
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-5);
@@ -752,7 +753,7 @@ function schedule(card, grade) {
 
 async function reviewPage(courseId) {
   const [cards, courses] = await Promise.all([store.all('cards'), store.all('courses')]);
-  const titles = Object.fromEntries(courses.map((c) => [c.id, c.title]));
+  const titles = { 'history-moments': 'A moment in history', ...Object.fromEntries(courses.map((c) => [c.id, c.title])) };
   const queue = cards.filter((c) => c.due <= Date.now() && (!courseId || c.courseId === courseId)).sort((a, b) => a.due - b.due);
   let reviewed = 0;
   let grading = false;
@@ -845,6 +846,12 @@ async function settingsPage() {
         <select id="toolTier" name="toolTier">${tierOpt(s.toolTier, [['default', 'Balanced'], ['complex', 'Deepest reasoning'], ['quick', 'Fastest']])}</select>
       </section>
 
+      <section class="panel form">
+        <h2>A moment in history</h2>
+        <label class="check"><input type="checkbox" id="historyPopup" name="historyPopup" ${s.historyPopup === false ? '' : 'checked'}> Show a short history lesson each time I open Lyceum</label>
+        <p class="muted small">Each one is written fresh by Claude and uses a little of your plan.</p>
+      </section>
+
       ${
         mode === 'api'
           ? `<section class="panel form">
@@ -875,7 +882,7 @@ async function settingsPage() {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(form));
     try {
-      await ai.saveSettings({ ...s, profile: f.profile.trim(), tutorTier: f.tutorTier, toolTier: f.toolTier, ...(f.apiKey !== undefined ? { apiKey: f.apiKey.trim() } : {}) });
+      await ai.saveSettings({ ...s, profile: f.profile.trim(), tutorTier: f.tutorTier, toolTier: f.toolTier, historyPopup: f.historyPopup === 'on', ...(f.apiKey !== undefined ? { apiKey: f.apiKey.trim() } : {}) });
       toast('Settings saved', 'ok');
     } catch (err) {
       toast(err.message, 'err');
@@ -912,3 +919,4 @@ async function settingsPage() {
 /* ---------- boot ---------- */
 
 route();
+showHistoryMoment({ go, onCardAdded: updateNavBadge, toast }).catch(() => {});
