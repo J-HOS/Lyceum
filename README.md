@@ -14,7 +14,7 @@ Tell it what you want to master. It designs a full graduate course (modules, les
 
 ## Setup
 
-1. Open the app: **https://j-hos.github.io/lyceum/**
+1. Open the app: **https://j-hos.github.io/Lyceum/**
 2. Get an API key at [console.anthropic.com](https://console.anthropic.com/settings/keys) and add some credit.
 3. In **Settings**, paste the key, write a few lines about yourself as a learner, and connect your Obsidian vault folder. Connecting the vault needs Chrome or Edge on desktop; other browsers download `.md` files instead.
 
